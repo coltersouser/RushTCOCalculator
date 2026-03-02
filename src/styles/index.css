@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --rush-gold: #eeb111;
+  --rush-black: #111111;
+  --rush-red: #ed1c24;
+
+  --gray-light: #e6e7e8;
+  --gray-medium: #939598;
+  --gray-dark: #4b4c4c;
+
+  --card-bg: #ffffff;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+input, select, button, textarea { font: inherit; }
+
+body { font-family: "Arial Narrow", Arial, sans-serif; }
+h1, h2, h3 { letter-spacing: 0.02em; }
