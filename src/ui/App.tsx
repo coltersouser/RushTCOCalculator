@@ -9,6 +9,10 @@ import { ChartsPanel } from "./components/ChartsPanel";
 import { ModeToggle } from "./components/ModeToggle";
 import { ScenarioManager } from "./components/ScenarioManager";
 import rushLogo from "../assets/rush-logo.png";
+import { TcoBreakdownChart } from "./components/TcoBreakdownChart";
+import { Year0DivergingBar } from "./components/Year0DivergingBar";
+import { Year0Waterfall } from "./components/Year0Waterfall";
+
 
 
 export function App() {
@@ -66,6 +70,12 @@ export function App() {
 
             <ResultsDashboard summary={summary} mode={mode} />
             <ChartsPanel summary={summary} />
+            <TcoBreakdownChart summary={summary} />
+
+             {/* Year 0 visuals */}
+            <Year0DivergingBar summary={summary} />
+            <Year0Waterfall summary={summary} powertrain="ev" />
+
             
             
           </section>

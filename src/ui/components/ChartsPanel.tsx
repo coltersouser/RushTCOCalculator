@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import type { CalcSummary } from "../../engine/calc";
 import { Card } from "./Card";
+import { Year0DivergingBar } from "./Year0DivergingBar";
+import { Year0Waterfall } from "./Year0Waterfall";
 
 function fmtCurrency(v: number) {
   const n = Number.isFinite(v) ? Math.round(v) : 0;
@@ -65,7 +67,7 @@ export function ChartsPanel({ summary }: { summary: CalcSummary }) {
       : "Payback: N/A";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
       <Card title="Cumulative Cost (Cashflow-Based)">
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -116,6 +118,8 @@ export function ChartsPanel({ summary }: { summary: CalcSummary }) {
           {paybackLabel}. Positive values mean the alternative has saved money vs diesel.
         </div>
       </Card>
+
+
     </div>
   );
 }

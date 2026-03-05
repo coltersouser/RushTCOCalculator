@@ -72,6 +72,30 @@ export const inputSchema: InputSchema = {
       "advanced": false
     },
 
+    {
+      "key": "grant.used",
+      "label": "Grant Used?",
+      "group": "general",
+      "type": "toggle",
+      "default": false,
+      "advanced": true
+    },
+
+    {
+      "key": "scrap.required",
+      "label": "Scrap Required?",
+      "group": "general",
+      "type": "toggle",
+      "default": false,
+      "advanced": true,
+      "showWhen": [
+        {
+          "key": "grant.used",
+          "equals": true
+        }
+      ]
+    },
+
 
     {
       "key": "general.isDrayageTruck",
@@ -179,7 +203,7 @@ export const inputSchema: InputSchema = {
       "advanced": false
     },
     {
-      "key": "ev.grantTruckScrapValue",
+      "key": "ev.scrapValue",
       "label": "EV grant truck scrap value",
       "group": "ev",
       "type": "currency",
@@ -187,18 +211,30 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 1000000,
       "step": 1000,
-      "advanced": true
+      "advanced": true,
+      "showWhen": [
+        {
+          "key": "scrap.required",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "ev.grantValue",
       "label": "EV grant value",
       "group": "ev",
       "type": "currency",
-      "default": 40000,
+      "default": 0,
       "min": 0,
       "max": 500000,
       "step": 1000,
-      "advanced": false
+      "advanced": false,
+      "showWhen": [
+        {
+          "key": "grant.used",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "ev.financingRateApr",
@@ -639,7 +675,7 @@ export const inputSchema: InputSchema = {
       "advanced": false
     },
     {
-      "key": "cng.grantTruckScrapValue",
+      "key": "cng.scrapValue",
       "label": "CNG grant truck scrap value",
       "group": "cng",
       "type": "currency",
@@ -647,7 +683,13 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 1000000,
       "step": 1000,
-      "advanced": true
+      "advanced": true,
+      "showWhen": [
+        {
+          "key": "scrap.required",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "cng.grantValue",
@@ -658,7 +700,13 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 500000,
       "step": 1000,
-      "advanced": false
+      "advanced": false,
+      "showWhen": [
+        {
+          "key": "grant.used",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "cng.financingRateApr",
@@ -898,7 +946,7 @@ export const inputSchema: InputSchema = {
       "advanced": false
     },
     {
-      "key": "diesel.grantTruckScrapValue",
+      "key": "diesel.scrapValue",
       "label": "Diesel grant truck scrap value",
       "group": "diesel",
       "type": "currency",
@@ -906,7 +954,13 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 1000000,
       "step": 1000,
-      "advanced": true
+      "advanced": true,
+      "showWhen": [
+        {
+          "key": "scrap.required",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "diesel.grantValue",
@@ -917,7 +971,13 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 500000,
       "step": 1000,
-      "advanced": true
+      "advanced": true,
+      "showWhen": [
+        {
+          "key": "grant.used",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "diesel.financingRateApr",

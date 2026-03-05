@@ -24,6 +24,8 @@ export type CalcSummary = {
   fiveYearSavingsVsDiesel: { ev: number; cng: number };
   paybackYears: { ev: number | null; cng: number | null };
 
+  year0Breakdown: Record<Powertrain, { label: string; value: number }[]>; // <-- ADD THIS
+
   series: {
     years: number[];
     cumulativeCost: Record<Powertrain, number[]>;
@@ -252,53 +254,46 @@ export function calculate(inputs: Inputs): CalcSummary {
   }
 
   type CapexPlan = {
-    year0Outflow: number; // positive cost
-    financedPrincipal: number;
-    annualApr: number;
-    termYears: number;
-    residualInFinalYear: number; // positive proceeds (we subtract from cost)
-  };
+  year0Outflow: number;        // positive cost (down + scrap)
+  grantYear0: number;          // negative (inflow)
+  financedPrincipal: number;
+  annualApr: number;
+  termYears: number;
+  residualInFinalYear: number; // positive proceeds (we subtract later)
+};
 
   function vehicleCapexPlan(prefix: "diesel" | "cng" | "ev"): CapexPlan {
-    const costKey = prefix === "ev" ? "ev.vehicleCost" : `${prefix}.truckCost`;
-    const grantKey = `${prefix}.grantValue`;
-    const residualKey = `${prefix}.residualValue`;
+  const costKey = prefix === "ev" ? "ev.vehicleCost" : `${prefix}.truckCost`;
+  const grantKey = `${prefix}.grantValue`;
+  const scrapKey = `${prefix}.scrapValue`;
+  const residualKey = `${prefix}.residualValue`;
 
-    const downPct = n(inputs, `${prefix}.downPaymentPct`, 0.2);
-    const apr = n(inputs, `${prefix}.financingRateApr`, 0.05);
-    const term = n(inputs, `${prefix}.financingTermYears`, 6);
+  const downPct = n(inputs, `${prefix}.downPaymentPct`, 0.2);
+  const apr = n(inputs, `${prefix}.financingRateApr`, 0.05);
+  const term = n(inputs, `${prefix}.financingTermYears`, 6);
 
-    const cost = n(inputs, costKey, 0);
-    const grant = n(inputs, grantKey, 0);
+  const grossCost = Math.max(0, n(inputs, costKey, 0));
+  const grant = Math.max(0, n(inputs, grantKey, 0));
+  const scrap = Math.max(0, n(inputs, scrapKey, 0));
+  const residual = Math.max(0, n(inputs, residualKey, 0));
 
-    // Option A: grant reduces upfront purchase price
-    const netCost = Math.max(0, cost - grant);
+  // Grant is an explicit Year 0 inflow (negative cashflow)
+  const grantYear0 = -grant;
+  const netCostForFinance = grossCost; // <-- do NOT subtract grant here
 
-    const down = netCost * downPct;
-    const financed = Math.max(0, netCost - down);
-    const residual = n(inputs, residualKey, 0);
+  const down = netCostForFinance * downPct;
+  const financed = Math.max(0, netCostForFinance - down);
 
-    return { year0Outflow: down, financedPrincipal: financed, annualApr: apr, termYears: term, residualInFinalYear: residual };
-  }
+  return {
+    year0Outflow: down + scrap,
+    grantYear0,
+    financedPrincipal: financed,
+    annualApr: apr,
+    termYears: term,
+    residualInFinalYear: residual,
+  };
+}
 
-  function evInfraCapexPlan(): CapexPlan {
-    const chargerCost = n(inputs, "evInfra.chargerCost", 0);
-    const infraCostPerCharger = n(inputs, "evInfra.infrastructureCostPerCharger", 0);
-    const qty = n(inputs, "evInfra.chargerQuantity", 0);
-    const funding = n(inputs, "evInfra.chargerFunding", 0);
-
-    // Option A: funding reduces upfront capex
-    const total = Math.max(0, (chargerCost - funding + infraCostPerCharger) * qty);
-
-    const downPct = n(inputs, "evInfra.downPaymentPct", 1);
-    const apr = n(inputs, "evInfra.financingRateApr", 0.05);
-    const term = n(inputs, "evInfra.financingTermYears", 15);
-
-    const down = total * downPct;
-    const financed = Math.max(0, total - down);
-
-    return { year0Outflow: down, financedPrincipal: financed, annualApr: apr, termYears: term, residualInFinalYear: 0 };
-  }
 
   function cngStationYear0Outflow(yearIndex: number): number {
     if (!b(inputs, "cngStation.installingStation", true)) return 0;
@@ -406,18 +401,20 @@ const peakDemandKw =
   cashflow.cng = years.map(() => 0);
   cashflow.ev = years.map(() => 0);
 
+
   const dieselCap = vehicleCapexPlan("diesel");
   const cngCap = vehicleCapexPlan("cng");
   const evCap = vehicleCapexPlan("ev");
 
-  // ---------------- EVSE + Infrastructure (replacement + residual) ----------------
+// ---------------- EVSE + Infrastructure (replacement + residual) ----------------
 const chargerQty = n(inputs, "evInfra.chargerQuantity", 0);
 
-// Chargers capex: (chargerCost - funding) * qty
-const chargerUnitCost = Math.max(0, n(inputs, "evInfra.chargerCost", 0) - n(inputs, "evInfra.chargerFunding", 0));
-const chargersCapexYear0 = chargerUnitCost * chargerQty;
+const chargerCost = Math.max(0, n(inputs, "evInfra.chargerCost", 0));
+const chargerFunding = Math.max(0, n(inputs, "evInfra.chargerFunding", 0));
 
-// Infrastructure capex: everything NOT the charger (per-charger infra cost * qty)
+const chargersCapexYear0 = chargerCost * chargerQty;
+const chargerFundingYear0 = -(chargerFunding * chargerQty); // negative inflow
+
 const infraPerCharger = Math.max(0, n(inputs, "evInfra.infrastructureCostPerCharger", 0));
 const infrastructureCapexYear0 = infraPerCharger * chargerQty;
 
@@ -450,6 +447,39 @@ if (infrastructureCapexYear0 > 0) {
     costEscalationRate: evseEsc,
   });
 }
+
+// apply funding as explicit Year 0 negative cashflow
+cashflow.ev[0] += chargerFundingYear0
+
+if (infrastructureCapexYear0 > 0) {
+  addReplacementAssetSchedule({
+    cashflow: cashflow.ev,
+    years,
+    analysisYears: depYears,
+    assetLifeYears: infrastructureLifeYears,
+    baseCostYear0: infrastructureCapexYear0,
+    costEscalationRate: evseEsc,
+  });
+}
+
+const year0Breakdown: Record<Powertrain, { label: string; value: number }[]> = {
+  diesel: [
+    { label: "Truck down payment (+ scrap)", value: dieselCap.year0Outflow * trucks },
+    { label: "Truck grant", value: dieselCap.grantYear0 * trucks },
+  ],
+  cng: [
+    { label: "Truck down payment (+ scrap)", value: cngCap.year0Outflow * trucks },
+    { label: "Truck grant", value: cngCap.grantYear0 * trucks },
+    { label: "CNG station capex", value: cngStationYear0Outflow(0) },
+  ],
+  ev: [
+    { label: "Truck down payment (+ scrap)", value: evCap.year0Outflow * trucks },
+    { label: "Truck grant", value: evCap.grantYear0 * trucks },
+    { label: "Chargers capex (Year 0)", value: chargersCapexYear0 },
+    { label: "Infrastructure capex (Year 0)", value: infrastructureCapexYear0 },
+    { label: "Charger funding", value: chargerFundingYear0 },
+  ],
+};
  
 
  for (const y of years) {
@@ -457,10 +487,13 @@ if (infrastructureCapexYear0 > 0) {
 
   if (y === 0) {
     cashflow.diesel[y] += dieselCap.year0Outflow * trucks;
+    cashflow.diesel[y] += dieselCap.grantYear0 * trucks; // negative
     cashflow.cng[y] += cngCap.year0Outflow * trucks + cngStationYear0Outflow(0);
+    cashflow.cng[y] += cngCap.grantYear0 * trucks; // negative
 
     // EV: add only TRUCK down payment here (EVSE/infra already added above via schedule)
     cashflow.ev[y] += evCap.year0Outflow * trucks;
+    cashflow.ev[y] += evCap.grantYear0 * trucks; // negative
 
     continue;
   }
@@ -552,15 +585,16 @@ const periodSavingsVsDiesel = {
   const payback = { ev: paybackFromCashflow("ev"), cng: paybackFromCashflow("cng") };
 
   return {
-    startYear,
-    horizonYears: horizon,
-    annualMilesPerTruck,
-    fleetMilesPerYear,
-    costPerMile,
-    costPerYear,
-    fiveYearTco: periodTco,
-    fiveYearSavingsVsDiesel: periodSavingsVsDiesel,
-    paybackYears: payback,
-    series: { years, cumulativeCost, annualCost, cashflow },
-  };
+  startYear,
+  horizonYears: horizon,
+  annualMilesPerTruck,
+  fleetMilesPerYear,
+  costPerMile,
+  costPerYear,
+  fiveYearTco: periodTco,
+  fiveYearSavingsVsDiesel: periodSavingsVsDiesel,
+  paybackYears: payback,
+  year0Breakdown, // <-- ADD THIS
+  series: { years, cumulativeCost, annualCost, cashflow },
+};
 }
