@@ -70,7 +70,7 @@ export function App() {
 
             <ResultsDashboard summary={summary} mode={mode} />
             <ChartsPanel summary={summary} />
-            <TcoBreakdownChart summary={summary} />
+            
 
              {/* Year 0 visuals */}
             <Year0DivergingBar summary={summary} />
