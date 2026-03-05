@@ -51,7 +51,7 @@ export const inputSchema: InputSchema = {
   "fields": [
     {
       "key": "general.depreciationYears",
-      "label": "Depreciation schedule (years)",
+      "label": "Vehicle Lifespan",
       "group": "general",
       "type": "number",
       "default": 7,
@@ -71,25 +71,8 @@ export const inputSchema: InputSchema = {
       "step": 1,
       "advanced": false
     },
-    {
-      "key": "general.waireApplicable",
-      "label": "WAIRE applicable",
-      "group": "general",
-      "type": "toggle",
-      "default": true,
-      "advanced": true
-    },
-    {
-      "key": "general.warehouseVisitsPerYearPerVehicle",
-      "label": "Warehouse visits per year (per vehicle)",
-      "group": "general",
-      "type": "number",
-      "default": 280,
-      "min": 0,
-      "max": 2000,
-      "step": 1,
-      "advanced": true
-    },
+
+
     {
       "key": "general.isDrayageTruck",
       "label": "Drayage truck (Ports / Clean Truck Fee)",
@@ -120,7 +103,7 @@ export const inputSchema: InputSchema = {
       "label": "Miles per day (per truck)",
       "group": "general",
       "type": "number",
-      "default": 300,
+      "default": 150,
       "min": 0,
       "max": 1000,
       "step": 1,
@@ -142,7 +125,7 @@ export const inputSchema: InputSchema = {
       "label": "CA LCFS applicable",
       "group": "general",
       "type": "toggle",
-      "default": true,
+      "default": false,
       "advanced": true
     },
     {
@@ -176,7 +159,13 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 500,
       "step": 1,
-      "advanced": true
+      "advanced": true,
+      "showWhen": [
+        {
+          "key": "general.lcfsApplicable",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "ev.vehicleCost",
@@ -278,6 +267,19 @@ export const inputSchema: InputSchema = {
       "advanced": false
     },
     {
+  "key": "ev.simultaneousChargingFactor",
+  "label": "Simultaneous Charging Factor",
+  "group": "ev",
+  "type": "percent",
+  "default": .6,
+  "min": .1,
+  "max": 1,
+  "step": .05,
+  "advanced": true,
+  "help": "Percent of trucks that will be charging at the same time"
+},
+    
+    {
       "key": "evInfra.chargerCost",
       "label": "Charger cost",
       "group": "evInfra",
@@ -289,7 +291,7 @@ export const inputSchema: InputSchema = {
       "advanced": true
     },
     {
-      "key": "evInfra.chargerLifespanYears",
+      "key": "evInfra.chargerLifeYears",
       "label": "Charger lifespan (years)",
       "group": "evInfra",
       "type": "number",
@@ -301,7 +303,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "evInfra.chargerFunding",
-      "label": "Charger funding",
+      "label": "Charger grant funding",
       "group": "evInfra",
       "type": "currency",
       "default": 0,
@@ -315,15 +317,15 @@ export const inputSchema: InputSchema = {
       "label": "Infrastructure cost per charger",
       "group": "evInfra",
       "type": "currency",
-      "default": 0.01,
+      "default": 0,
       "min": 0,
       "max": 5000000,
       "step": 100,
       "advanced": true
     },
     {
-      "key": "evInfra.infrastructureDepreciationYears",
-      "label": "Infrastructure depreciation (years)",
+      "key": "evInfra.infrastructureLifeYears",
+      "label": "Infrastructure lifespan (years",
       "group": "evInfra",
       "type": "number",
       "default": 30,
@@ -390,7 +392,7 @@ export const inputSchema: InputSchema = {
     {
       "key": "evInfra.lcfsCreditShare",
       "label": "LCFS credit share (EV)",
-      "group": "evInfra",
+      "group": "general",
       "type": "percent",
       "default": 0.8,
       "min": 0,
@@ -563,14 +565,14 @@ export const inputSchema: InputSchema = {
       ]
     },
     {
-      "key": "chargingSplit.summerOnPeakPct",
-      "label": "% Summer On-Peak",
+      "key": "ev.pctChargeSuperOffPeak",
+      "label": "% Charging in Super Off-Peak",
       "group": "chargingSplit",
-      "type": "percent",
-      "default": 1,
+      "type": "number",
+      "default": 70,
       "min": 0,
-      "max": 1,
-      "step": 0.01,
+      "max": 100,
+      "step": 1,
       "advanced": true,
       "showWhen": [
         {
@@ -580,14 +582,14 @@ export const inputSchema: InputSchema = {
       ]
     },
     {
-      "key": "chargingSplit.summerMidPeakPct",
-      "label": "% Summer Mid-Peak",
+      "key": "ev.pctChargeOffPeak",
+      "label": "% Charging in Off-Peak",
       "group": "chargingSplit",
-      "type": "percent",
-      "default": 0,
+      "type": "number",
+      "default": 25,
       "min": 0,
-      "max": 1,
-      "step": 0.01,
+      "max": 100,
+      "step": 1,
       "advanced": true,
       "showWhen": [
         {
@@ -597,14 +599,14 @@ export const inputSchema: InputSchema = {
       ]
     },
     {
-      "key": "chargingSplit.summerOffPeakPct",
-      "label": "% Summer Off-Peak",
+      "key": "ev.pctChargeMidOnPeak",
+      "label": "% Charging in Mid/On Peak",
       "group": "chargingSplit",
-      "type": "percent",
-      "default": 0,
+      "type": "number",
+      "default": 5,
       "min": 0,
-      "max": 1,
-      "step": 0.01,
+      "max": 100,
+      "step": 1,
       "advanced": true,
       "showWhen": [
         {
@@ -613,63 +615,13 @@ export const inputSchema: InputSchema = {
         }
       ]
     },
-    {
-      "key": "chargingSplit.winterMidPeakPct",
-      "label": "% Winter Mid-Peak",
-      "group": "chargingSplit",
-      "type": "percent",
-      "default": 0,
-      "min": 0,
-      "max": 1,
-      "step": 0.01,
-      "advanced": true,
-      "showWhen": [
-        {
-          "key": "utility.isTouSchedule",
-          "equals": true
-        }
-      ]
-    },
-    {
-      "key": "chargingSplit.winterOffPeakPct",
-      "label": "% Winter Off-Peak",
-      "group": "chargingSplit",
-      "type": "percent",
-      "default": 0,
-      "min": 0,
-      "max": 1,
-      "step": 0.01,
-      "advanced": true,
-      "showWhen": [
-        {
-          "key": "utility.isTouSchedule",
-          "equals": true
-        }
-      ]
-    },
-    {
-      "key": "chargingSplit.winterSuperOffPeakPct",
-      "label": "% Winter Super Off-Peak",
-      "group": "chargingSplit",
-      "type": "percent",
-      "default": 0,
-      "min": 0,
-      "max": 1,
-      "step": 0.01,
-      "advanced": true,
-      "showWhen": [
-        {
-          "key": "utility.isTouSchedule",
-          "equals": true
-        }
-      ]
-    },
+    
     {
       "key": "cng.mpg",
       "label": "CNG fuel economy (mpg)",
       "group": "cng",
       "type": "number",
-      "default": 6.8,
+      "default": 6.5,
       "min": 0,
       "max": 30,
       "step": 0.1,
@@ -724,7 +676,7 @@ export const inputSchema: InputSchema = {
       "label": "CNG down payment",
       "group": "cng",
       "type": "percent",
-      "default": 0.2,
+      "default": 1,
       "min": 0,
       "max": 1,
       "step": 0.05,
@@ -861,7 +813,7 @@ export const inputSchema: InputSchema = {
       "label": "Station down payment",
       "group": "cngStation",
       "type": "percent",
-      "default": 0.2,
+      "default": 1,
       "min": 0,
       "max": 1,
       "step": 0.05,
@@ -895,7 +847,7 @@ export const inputSchema: InputSchema = {
       "label": "Diesel price ($/gal)",
       "group": "diesel",
       "type": "currency",
-      "default": 4.97,
+      "default": 5.00,
       "min": 0,
       "max": 20,
       "step": 0.01,
@@ -928,7 +880,7 @@ export const inputSchema: InputSchema = {
       "label": "Diesel fuel economy (mpg)",
       "group": "diesel",
       "type": "number",
-      "default": 8,
+      "default": 7,
       "min": 0,
       "max": 30,
       "step": 0.1,
@@ -983,7 +935,7 @@ export const inputSchema: InputSchema = {
       "label": "Diesel down payment",
       "group": "diesel",
       "type": "percent",
-      "default": 0.2,
+      "default": 1,
       "min": 0,
       "max": 1,
       "step": 0.05,
@@ -1036,14 +988,20 @@ export const inputSchema: InputSchema = {
     {
       "key": "diesel.cleanTruckPortFee",
       "label": "Clean Truck Port Fee ($/trip)",
-      "group": "diesel",
+      "group": "general",
       "type": "currency",
       "default": 20,
       "min": 0,
       "max": 500,
       "step": 1,
       "advanced": true,
-      "help": "Used when Drayage truck is ON."
+      "help": "Used when Drayage truck is ON.",
+      "showWhen": [
+        {
+          "key": "general.isDrayageTruck",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "cng.fuelPricePerGge",
@@ -1077,33 +1035,14 @@ export const inputSchema: InputSchema = {
       "advanced": true,
       "help": "If OFF, EV maintenance = 60% of the higher of Diesel/CNG maintenance (inflated)."
     },
-    {
-      "key": "waire.overrideAnnualValue",
-      "label": "Override WAIRE annual value (fleet, $/yr)",
-      "group": "general",
-      "type": "currency",
-      "default": 0,
-      "min": -100000000,
-      "max": 100000000,
-      "step": 1000,
-      "advanced": true,
-      "help": "Temporary: enter your WAIRE annual credit/cost for fleet. Negative = credit."
-    },
-    {
-      "key": "waire.useOverride",
-      "label": "Use WAIRE override",
-      "group": "general",
-      "type": "toggle",
-      "default": false,
-      "advanced": true
-    },
+    
     {
       "key": "general.modelStartYear",
       "label": "Model start year (Year 0)",
       "group": "general",
       "type": "number",
       "default": 2026,
-      "min": 2020,
+      "min": 2026,
       "max": 2050,
       "step": 1,
       "advanced": true,

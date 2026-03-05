@@ -1,14 +1,15 @@
+// Fresh calc.ts (cashflow-based, depreciation-limited charts, LCFS)
+// - Year 0 capex (down payment + infra capex net grants)
+// - Years 1..N operating + loan payments
+// - Residual proceeds in final depreciation year
+// - Series ends at min(horizonYears, depreciationYears)
+// - Cumulative series is a true running-sum
+// - LCFS uses grid CI table (year-based) and your existing input keys
+// - WAIRE supports: override toggle + “actual calc” toggle (falls back to best-available keys)
+
 import type { Inputs } from "../types/schema";
 
 export type Powertrain = "diesel" | "cng" | "ev";
-
-export type YearSeries = {
-  yearIndex: number; // 1..N
-  calendarYear?: number;
-  diesel: number;
-  cng: number;
-  ev: number;
-};
 
 export type CalcSummary = {
   startYear: number;
@@ -16,43 +17,76 @@ export type CalcSummary = {
   annualMilesPerTruck: number;
   fleetMilesPerYear: number;
 
-  // headline
   costPerMile: Record<Powertrain, number>;
   costPerYear: Record<Powertrain, number>;
+
   fiveYearTco: Record<Powertrain, number>;
   fiveYearSavingsVsDiesel: { ev: number; cng: number };
   paybackYears: { ev: number | null; cng: number | null };
 
-  // for charts
   series: {
     years: number[];
     cumulativeCost: Record<Powertrain, number[]>;
     annualCost: Record<Powertrain, number[]>;
+    cashflow: Record<Powertrain, number[]>;
   };
 };
 
+// ----------------- tiny helpers -----------------
 function n(inputs: Inputs, key: string, fallback = 0): number {
-  const v = inputs[key];
+  const v = (inputs as any)[key];
   const num = typeof v === "number" ? v : Number(v);
   return Number.isFinite(num) ? num : fallback;
 }
+function addReplacementAssetSchedule(params: {
+  cashflow: number[];          // the array we add costs to
+  years: number[];             // [0..N]
+  analysisYears: number;       // depYears
+  assetLifeYears: number;      // chargerLifeYears or infraLifeYears
+  baseCostYear0: number;       // total cost at year 0 (already includes qty)
+  costEscalationRate: number;  // optional, 0 if you want
+}) {
+  const { cashflow, years, analysisYears, assetLifeYears, baseCostYear0, costEscalationRate } = params;
+
+  const life = Math.max(1, Math.round(assetLifeYears));
+  const esc = Number.isFinite(costEscalationRate) ? costEscalationRate : 0;
+
+  // track purchases so we can compute residual of the last purchase
+  let lastPurchaseYear = 0;
+  let lastPurchaseCost = 0;
+
+  for (let y = 0; y < years.length; y++) {
+    // purchases happen at 0, life, 2*life, ... while < analysisYears
+    if (y % life === 0 && y < analysisYears) {
+      const costAtY = baseCostYear0 * Math.pow(1 + esc, y);
+      cashflow[y] = (cashflow[y] ?? 0) + costAtY; // cost is positive outflow
+      lastPurchaseYear = y;
+      lastPurchaseCost = costAtY;
+    }
+  }
+
+  // Residual at end of analysis (analysisYears)
+  // Remaining life of the LAST purchased asset at year analysisYears
+  const ageAtEnd = analysisYears - lastPurchaseYear;
+  const remaining = life - ageAtEnd;
+
+  if (remaining > 0 && analysisYears < years.length) {
+    const residual = lastPurchaseCost * (remaining / life);
+    cashflow[analysisYears] = (cashflow[analysisYears] ?? 0) - residual; // proceeds reduce cost
+  }
+}
 function b(inputs: Inputs, key: string, fallback = false): boolean {
-  const v = inputs[key];
+  const v = (inputs as any)[key];
   return typeof v === "boolean" ? v : Boolean(v ?? fallback);
 }
-
 function clampInt(x: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(x)));
 }
-
-/**
- * Excel PMT(rate, nper, pv, fv, type)
- * Here:
- * - rate is monthly rate (APR/12)
- * - nper is months
- * - pv is negative for "borrowed" in Excel formulas, but we accept positive pv and return a positive payment.
- */
-export function pmtMonthly(rate: number, nper: number, pv: number, fv = 0, type: 0 | 1 = 0): number {
+function inflationFactor(inflationRate: number, yearIndex: number): number {
+  // Year 1 is “base year” for op-ex inflation in this model
+  return Math.pow(1 + inflationRate, Math.max(0, yearIndex - 1));
+}
+function pmtMonthly(rate: number, nper: number, pv: number, fv = 0, type: 0 | 1 = 0): number {
   if (nper <= 0) return 0;
   if (Math.abs(rate) < 1e-10) return (pv + fv) / nper;
   const r = rate;
@@ -61,95 +95,19 @@ export function pmtMonthly(rate: number, nper: number, pv: number, fv = 0, type:
   if (type === 1) pmt = pmt / (1 + r);
   return pmt;
 }
-
-function annualPaymentIfWithinTerm(annualRate: number, termYears: number, financedAmount: number, yearIndex: number): number {
-  const t = clampInt(termYears, 0, 60);
-  if (t <= 0) return 0;
-  if (yearIndex > t) return 0;
-  const m = pmtMonthly(annualRate / 12, t * 12, financedAmount, 0, 0);
-  return m * 12;
-}
-
 function horizonYears(inputs: Inputs): number {
-  return clampInt(n(inputs, "general.depreciationYears", 7), 3, 15);
+  return clampInt(n(inputs, "general.horizonYears", 10), 1, 30);
+}
+function normalize3(a: number, b: number, c: number) {
+  const aa = Math.max(0, a);
+  const bb = Math.max(0, b);
+  const cc = Math.max(0, c);
+  const sum = aa + bb + cc;
+  if (sum <= 1e-9) return { a: 1 / 3, b: 1 / 3, c: 1 / 3 };
+  return { a: aa / sum, b: bb / sum, c: cc / sum };
 }
 
-function inflationFactor(inflationRate: number, yearIndex: number): number {
-  // yearIndex 1 => base year (no inflation)
-  return Math.pow(1 + inflationRate, Math.max(0, yearIndex - 1));
-}
-
-type TouRates = {
-  summerOn: number;
-  summerMid: number;
-  summerOff: number;
-  winterMid: number;
-  winterOff: number;
-  winterSuperOff: number;
-};
-
-function blendedElectricityRate(inputs: Inputs, yearIndex: number): number {
-  const tou = b(inputs, "utility.isTouSchedule", true);
-  const infl = n(inputs, "financial.inflationRate", 0.03);
-  if (!tou) return n(inputs, "utility.flatRateKwh", 0.18) * inflationFactor(infl, yearIndex);
-
-  const rates0: TouRates = {
-    summerOn: n(inputs, "utility.rateSummerOnPeak", 0.08),
-    summerMid: n(inputs, "utility.rateSummerMidPeak", 0.33723),
-    summerOff: n(inputs, "utility.rateSummerOffPeak", 0.14926),
-    winterMid: n(inputs, "utility.rateWinterMidPeak", 0.37882),
-    winterOff: n(inputs, "utility.rateWinterOffPeak", 0.15603),
-    winterSuperOff: n(inputs, "utility.rateWinterSuperOffPeak", 0.09709),
-  };
-
-  const f = inflationFactor(infl, yearIndex);
-  const r: TouRates = {
-    summerOn: rates0.summerOn * f,
-    summerMid: rates0.summerMid * f,
-    summerOff: rates0.summerOff * f,
-    winterMid: rates0.winterMid * f,
-    winterOff: rates0.winterOff * f,
-    winterSuperOff: rates0.winterSuperOff * f,
-  };
-
-  const pct = {
-    summerOn: n(inputs, "chargingSplit.summerOnPeakPct", 1),
-    summerMid: n(inputs, "chargingSplit.summerMidPeakPct", 0),
-    summerOff: n(inputs, "chargingSplit.summerOffPeakPct", 0),
-    winterMid: n(inputs, "chargingSplit.winterMidPeakPct", 0),
-    winterOff: n(inputs, "chargingSplit.winterOffPeakPct", 0),
-    winterSuperOff: n(inputs, "chargingSplit.winterSuperOffPeakPct", 0),
-  };
-
-  const wsum = pct.summerOn + pct.summerMid + pct.summerOff + pct.winterMid + pct.winterOff + pct.winterSuperOff;
-  if (wsum <= 0) return n(inputs, "utility.flatRateKwh", 0.18) * f;
-
-  return (
-    r.summerOn * pct.summerOn +
-    r.summerMid * pct.summerMid +
-    r.summerOff * pct.summerOff +
-    r.winterMid * pct.winterMid +
-    r.winterOff * pct.winterOff +
-    r.winterSuperOff * pct.winterSuperOff
-  ) / wsum;
-}
-
-function demandChargePhaseInCumulative(inputs: Inputs, yearIndex: number): number {
-  const phased = b(inputs, "utility.scePhasedDemandCharge", true);
-  if (!phased) return 1;
-
-  // Matches spreadsheet: Y1=0.33, Y2..Y5=0.167 cumulative until 1
-  const phase = yearIndex === 1 ? 0.33 : 0.167;
-  const cum = 0.33 + 0.167 * Math.max(0, yearIndex - 2);
-  return Math.min(1, yearIndex === 1 ? 0.33 : yearIndex === 2 ? 0.167 : cum);
-}
-
-function demandChargeEffectiveRate(inputs: Inputs, yearIndex: number): number {
-  const base = n(inputs, "utility.demandChargeRate", 0);
-  return base * demandChargePhaseInCumulative(inputs, yearIndex);
-}
-
-// Hidden-sheet constants extracted from workbook (grid CI by year)
+// ----------------- Grid CI + LCFS -----------------
 const GRID_CI_BY_YEAR: Record<number, number> = {
   2022: 90.41,
   2023: 89.15,
@@ -177,61 +135,97 @@ const GRID_CI_BY_YEAR: Record<number, number> = {
   2045: 10.57,
 };
 
-
 function gridCiForYear(year: number): number {
-const years = Object.keys(GRID_CI_BY_YEAR).map((x) => Number(x)).sort((a, b) => a - b);
-if (years.length === 0) return 0;
-if (year <= years[0]) return GRID_CI_BY_YEAR[years[0]]!;
-if (year >= years[years.length - 1]) return GRID_CI_BY_YEAR[years[years.length - 1]]!;
-// find nearest lower year (table is annual)
-for (let i = years.length - 1; i >= 0; i--) {
-  if (year >= years[i]) return GRID_CI_BY_YEAR[years[i]]!;
-}
-return GRID_CI_BY_YEAR[years[0]]!;
-
+  const years = Object.keys(GRID_CI_BY_YEAR).map(Number).sort((a, b) => a - b);
+  if (years.length === 0) return 0;
+  if (year <= years[0]) return GRID_CI_BY_YEAR[years[0]]!;
+  if (year >= years[years.length - 1]) return GRID_CI_BY_YEAR[years[years.length - 1]]!;
+  for (let i = years.length - 1; i >= 0; i--) {
+    if (year >= years[i]) return GRID_CI_BY_YEAR[years[i]]!;
+  }
+  return GRID_CI_BY_YEAR[years[0]]!;
 }
 
 function evLcfsCreditPerYear(inputs: Inputs, calendarYear: number, kwhFleetPerYear: number): number {
-  const applicable = b(inputs, "general.lcfsApplicable", true);
-  if (!applicable) return 0;
+  if (!b(inputs, "general.lcfsApplicable", true)) return 0;
+
   const share = n(inputs, "evInfra.lcfsCreditShare", 0.8);
   const creditValue = n(inputs, "general.lcfsCreditValuePerUnit", 80);
   const electricityCI = n(inputs, "general.electricityCarbonIntensity", 0);
   const gridCI = gridCiForYear(calendarYear);
 
-  // From hidden sheet: (gridCI - electricityCI) * 5 * 3.6 * kWhFleet * 1e-6
+  // Credit units formula (as used in your earlier builds)
   const credits = (gridCI - electricityCI) * 5 * 3.6 * kwhFleetPerYear * 0.000001;
+
+  // Return NEGATIVE dollars to reduce cost
   return -credits * creditValue * share;
 }
 
-function cngLcfsCreditPerYear(inputs: Inputs, calendarYear: number, thermsPerYear: number): number {
-  const applicable = b(inputs, "general.lcfsApplicable", true);
-  if (!applicable) return 0;
+function cngLcfsCreditPerYear(inputs: Inputs, calendarYear: number, thermsPerYearFleet: number): number {
+  if (!b(inputs, "general.lcfsApplicable", true)) return 0;
+
   const share = n(inputs, "cng.lcfsCreditShare", 0);
   const creditValue = n(inputs, "general.lcfsCreditValuePerUnit", 80);
   const ngCI = n(inputs, "general.ngCarbonIntensity", 43);
   const gridCI = gridCiForYear(calendarYear);
 
-  // From hidden sheet: (B - ngCI) * 0.9 * 105.5 * thermsPerYear * 1e-6
-  const credits = (gridCI - ngCI) * 0.9 * 105.5 * thermsPerYear * 0.000001;
+  const credits = (gridCI - ngCI) * 0.9 * 105.5 * thermsPerYearFleet * 0.000001;
+
   return -creditValue * share * credits;
 }
 
-function cleanTruckFeePerTruckPerYear(inputs: Inputs): number {
-  const isDrayage = b(inputs, "general.isDrayageTruck", false);
-  if (!isDrayage) return 0;
-  const fee = n(inputs, "diesel.cleanTruckPortFee", 20);
-  const tripsPerDay = n(inputs, "general.portTripsPerDay", 2);
-  const workDays = n(inputs, "general.workDaysPerYear", 280);
-  return fee * tripsPerDay * workDays;
+// ----------------- Utility rate logic (matches your schema keys) -----------------
+function blendedElectricityRate(inputs: Inputs, yearIndex: number): number {
+  const f = inflationFactor(n(inputs, "financial.inflationRate", 0.03), yearIndex);
+  const isTou = b(inputs, "utility.isTouSchedule", true);
+
+  if (!isTou) {
+    return n(inputs, "utility.flatRateKwh", 0.18) * f;
+  }
+
+  // Existing tariff rates (inflate here)
+  const sOn = n(inputs, "utility.rateSummerOnPeak", 0.08) * f;
+  const sMid = n(inputs, "utility.rateSummerMidPeak", 0.12) * f;
+  const sOff = n(inputs, "utility.rateSummerOffPeak", 0.14926) * f;
+
+  const wMid = n(inputs, "utility.rateWinterMidPeak", 0.11) * f;
+  const wOff = n(inputs, "utility.rateWinterOffPeak", 0.10) * f;
+  const wSuper = n(inputs, "utility.rateWinterSuperOffPeak", 0.09709) * f;
+
+  // Bucket the tariff into 3 “charge windows”
+  const superOffRate = wSuper; // assume super-off aligns best to overnight charging
+  const offRate = (sOff + wOff) / 2;
+  const midOnRate = (sOn + sMid + wMid) / 3;
+
+  // Charging distribution (%). User can enter as 0–100 or 0–1; we’ll support both.
+  const rawSuper = n(inputs, "ev.pctChargeSuperOffPeak", 70);
+  const rawOff = n(inputs, "ev.pctChargeOffPeak", 25);
+  const rawMidOn = n(inputs, "ev.pctChargeMidOnPeak", 5);
+
+  // If they entered 0–1 fractions, convert to 0–100-ish for normalization
+  const scale = rawSuper <= 1 && rawOff <= 1 && rawMidOn <= 1 ? 100 : 1;
+
+  const { a: pSuper, b: pOff, c: pMidOn } = normalize3(rawSuper * scale, rawOff * scale, rawMidOn * scale);
+
+  return superOffRate * pSuper + offRate * pOff + midOnRate * pMidOn;
 }
 
-function wairePerYearFleet(inputs: Inputs): number {
-  // Temporary: allow override until we port WAIRE tab fully.
-  if (b(inputs, "waire.useOverride", false)) return n(inputs, "waire.overrideAnnualValue", 0);
-  return 0;
+function demandChargeEffectiveRate(inputs: Inputs, yearIndex: number): number {
+  const f = inflationFactor(n(inputs, "financial.inflationRate", 0.03), yearIndex);
+  const base = n(inputs, "utility.demandChargeRate", 0) * f;
+
+  const usePhaseIn = b(inputs, "utility.scePhasedDemandCharge", true);
+  if (!usePhaseIn) return base;
+
+  // ramp: Year 1 partial, then full by Year 5
+  const multipliers = [0, 0.33, 0.5, 0.67, 0.83, 1, 1, 1, 1, 1, 1];
+  const m = multipliers[Math.min(yearIndex, multipliers.length - 1)] ?? 1;
+  return base * m;
 }
 
+
+
+// ----------------- main calculate -----------------
 export function calculate(inputs: Inputs): CalcSummary {
   const horizon = horizonYears(inputs);
   const startYear = Math.round(n(inputs, "general.modelStartYear", 2026));
@@ -244,244 +238,318 @@ export function calculate(inputs: Inputs): CalcSummary {
   const annualMilesPerTruck = milesPerDay * workDays;
   const fleetMilesPerYear = annualMilesPerTruck * trucks;
 
-  // ---- Vehicle financing / capex (spreadsheet-style: compute total interest once, then spread via depreciation) ----
-  function vehicleInterestPerTruck(prefix: "diesel" | "cng" | "ev"): number {
-    const rate = n(inputs, `${prefix}.financingRateApr`, 0.05);
-    const termYears = n(inputs, `${prefix}.financingTermYears`, 6);
-    const downPct = n(inputs, `${prefix}.downPaymentPct`, 0.2);
-    const costKey = prefix === "ev" ? "ev.vehicleCost" : `${prefix}.truckCost`;
-    const grantKey = `${prefix}.grantValue`;
-    const scrapKey = `${prefix}.grantTruckScrapValue`;
+  // limit series to depreciation years (or horizon if smaller)
+  const depYears = Math.max(1, n(inputs, "general.depreciationYears", 7));
+  const seriesYears = Math.min(horizon, depYears);
+  const years = Array.from({ length: seriesYears + 1 }, (_, i) => i); // 0..seriesYears
 
-    const cost = n(inputs, costKey, 0);
-    const grant = n(inputs, grantKey, 0);
-    const customerCost = Math.max(0, cost - grant);
-    const down = customerCost * downPct;
-    const financed = Math.max(0, customerCost - down);
-    const totalPaid = pmtMonthly(rate / 12, clampInt(termYears, 0, 60) * 12, financed, 0, 0) * (clampInt(termYears, 0, 60) * 12);
-    const interest = Math.max(0, totalPaid - financed);
-    return interest;
+  function annualLoanPayment(annualApr: number, termYears: number, principal: number, yearIndex: number): number {
+    const t = clampInt(termYears, 0, 60);
+    if (t <= 0) return 0;
+    if (yearIndex < 1 || yearIndex > t) return 0;
+    const m = pmtMonthly(annualApr / 12, t * 12, principal, 0, 0);
+    return m * 12;
   }
 
-  function vehicleAnnualDepreciatedCostPerTruck(prefix: "diesel" | "cng" | "ev"): number {
-    const depYears = n(inputs, "general.depreciationYears", 7);
+  type CapexPlan = {
+    year0Outflow: number; // positive cost
+    financedPrincipal: number;
+    annualApr: number;
+    termYears: number;
+    residualInFinalYear: number; // positive proceeds (we subtract from cost)
+  };
+
+  function vehicleCapexPlan(prefix: "diesel" | "cng" | "ev"): CapexPlan {
     const costKey = prefix === "ev" ? "ev.vehicleCost" : `${prefix}.truckCost`;
     const grantKey = `${prefix}.grantValue`;
-    const scrapKey = `${prefix}.grantTruckScrapValue`;
     const residualKey = `${prefix}.residualValue`;
 
+    const downPct = n(inputs, `${prefix}.downPaymentPct`, 0.2);
+    const apr = n(inputs, `${prefix}.financingRateApr`, 0.05);
+    const term = n(inputs, `${prefix}.financingTermYears`, 6);
+
     const cost = n(inputs, costKey, 0);
     const grant = n(inputs, grantKey, 0);
-    const customerCost = prefix === "ev" ? (cost - grant) : (cost - grant);
-    const scrap = n(inputs, scrapKey, 0);
+
+    // Option A: grant reduces upfront purchase price
+    const netCost = Math.max(0, cost - grant);
+
+    const down = netCost * downPct;
+    const financed = Math.max(0, netCost - down);
     const residual = n(inputs, residualKey, 0);
-    const interest = vehicleInterestPerTruck(prefix);
-    return (customerCost + scrap - residual + interest) / Math.max(1, depYears);
+
+    return { year0Outflow: down, financedPrincipal: financed, annualApr: apr, termYears: term, residualInFinalYear: residual };
   }
 
-  // ---- Diesel operating costs ----
-  function dieselPerMile(yearIndex: number): number {
+  function evInfraCapexPlan(): CapexPlan {
+    const chargerCost = n(inputs, "evInfra.chargerCost", 0);
+    const infraCostPerCharger = n(inputs, "evInfra.infrastructureCostPerCharger", 0);
+    const qty = n(inputs, "evInfra.chargerQuantity", 0);
+    const funding = n(inputs, "evInfra.chargerFunding", 0);
+
+    // Option A: funding reduces upfront capex
+    const total = Math.max(0, (chargerCost - funding + infraCostPerCharger) * qty);
+
+    const downPct = n(inputs, "evInfra.downPaymentPct", 1);
+    const apr = n(inputs, "evInfra.financingRateApr", 0.05);
+    const term = n(inputs, "evInfra.financingTermYears", 15);
+
+    const down = total * downPct;
+    const financed = Math.max(0, total - down);
+
+    return { year0Outflow: down, financedPrincipal: financed, annualApr: apr, termYears: term, residualInFinalYear: 0 };
+  }
+
+  function cngStationYear0Outflow(yearIndex: number): number {
+    if (!b(inputs, "cngStation.installingStation", true)) return 0;
+    return yearIndex === 0 ? Math.max(0, n(inputs, "cngStation.installationCost", 0)) : 0;
+  }
+
+  function cleanTruckFeePerTruckPerYear(): number {
+    const isDrayage = b(inputs, "general.isDrayageTruck", false);
+    if (!isDrayage) return 0;
+    const fee = n(inputs, "diesel.cleanTruckPortFee", 20);
+    const tripsPerDay = n(inputs, "general.portTripsPerDay", 2);
+    const wd = n(inputs, "general.workDaysPerYear", 280);
+    return fee * tripsPerDay * wd;
+  }
+
+  // ---- Operating costs ----
+  function dieselOperatingCostYear(yearIndex: number): number {
     const f = inflationFactor(infl, yearIndex);
-    const dieselFuel = (n(inputs, "diesel.pricePerGallon", 4.97) / Math.max(0.001, n(inputs, "diesel.mpg", 8))) * f;
-    const defCost = (n(inputs, "diesel.defPrice", 4.5) / Math.max(0.001, n(inputs, "diesel.mpg", 8)) * n(inputs, "diesel.defDosingPct", 0.04)) * f;
+    const mpg = Math.max(0.001, n(inputs, "diesel.mpg", 8));
+
+    const dieselFuel = (n(inputs, "diesel.pricePerGallon", 4.97) / mpg) * f;
+    const defCost = (n(inputs, "diesel.defPrice", 4.5) / mpg) * n(inputs, "diesel.defDosingPct", 0.04) * f;
     const maint = n(inputs, "diesel.maintenanceCostPerMile", 0.25) * f;
-    const cleanFee = cleanTruckFeePerTruckPerYear(inputs) / Math.max(1, annualMilesPerTruck);
-    const truck = vehicleAnnualDepreciatedCostPerTruck("diesel") / Math.max(1, annualMilesPerTruck);
-    return dieselFuel + defCost + maint + cleanFee + truck;
+
+    const cleanFeePerMile = cleanTruckFeePerTruckPerYear() / Math.max(1, annualMilesPerTruck);
+
+    return (dieselFuel + defCost + maint + cleanFeePerMile) * fleetMilesPerYear;
   }
 
-  // ---- CNG operating costs ----
-  const thermsPerYear = (1.295 * ((annualMilesPerTruck / Math.max(0.001, n(inputs, "cng.mpg", 6.8))))) * trucks; // matches sheet (per fleet)
-  function cngPerMile(yearIndex: number, calendarYear: number): number {
-    const f = inflationFactor(infl, yearIndex);
-    const fuel = (n(inputs, "cng.fuelPricePerGge", 3.5) / Math.max(0.001, n(inputs, "cng.mpg", 6.8))) * f;
+  const thermsPerYearFleet =
+    (1.295 * (annualMilesPerTruck / Math.max(0.001, n(inputs, "cng.mpg", 6.8)))) * trucks;
 
-    const stationCostPerYear = b(inputs, "cngStation.installingStation", true)
-      ? (n(inputs, "cngStation.installationCost", 0) + vehicleInterestPerTruck("cng")) / Math.max(1, n(inputs, "cngStation.capitalDepreciationYears", 30))
-      : 0;
+  function cngOperatingCostYear(yearIndex: number, calendarYear: number): number {
+    const f = inflationFactor(infl, yearIndex);
+    const mpg = Math.max(0.001, n(inputs, "cng.mpg", 6.8));
+
+    const fuel = (n(inputs, "cng.fuelPricePerGge", 3.5) / mpg) * f;
+    const maint = n(inputs, "cng.maintenanceCostPerMile", 0.25) * f;
+    const cleanFeePerMile = cleanTruckFeePerTruckPerYear() / Math.max(1, annualMilesPerTruck);
+
     const stationMaintPerYear = b(inputs, "cngStation.installingStation", true)
       ? n(inputs, "cngStation.yearlyMaintenanceCost", 0) * f
       : 0;
 
-    const lcfs = cngLcfsCreditPerYear(inputs, calendarYear, thermsPerYear);
-    const lcfsPerMile = lcfs / Math.max(1, fleetMilesPerYear);
+    const lcfs = cngLcfsCreditPerYear(inputs, calendarYear, thermsPerYearFleet);
 
-    const maint = n(inputs, "cng.maintenanceCostPerMile", 0.25) * f;
-    const cleanFee = cleanTruckFeePerTruckPerYear(inputs) / Math.max(1, annualMilesPerTruck);
-    const truck = vehicleAnnualDepreciatedCostPerTruck("cng") / Math.max(1, annualMilesPerTruck);
-
-    return (
-      fuel +
-      (stationCostPerYear + stationMaintPerYear) / Math.max(1, fleetMilesPerYear) +
-      lcfsPerMile +
-      maint +
-      cleanFee +
-      truck
-    );
+    const perMile = fuel + maint + cleanFeePerMile + (stationMaintPerYear + lcfs) / Math.max(1, fleetMilesPerYear);
+    return perMile * fleetMilesPerYear;
   }
 
-  // ---- EV operating costs ----
-  function evMaintenancePerMile(yearIndex: number, dieselMaint: number, cngMaint: number): number {
+  function evMaintenancePerMile(yearIndex: number): number {
     const f = inflationFactor(infl, yearIndex);
     if (b(inputs, "ev.overrideMaintenance", false)) return n(inputs, "ev.maintenanceCostPerMileBase", 0.18) * f;
-    const dm = dieselMaint * f;
-    const cm = cngMaint * f;
-    return Math.max(dm, cm) * 0.6; // sheet uses IF and *0.6
+
+    // fallback heuristic vs diesel/cng
+    const dm = n(inputs, "diesel.maintenanceCostPerMile", 0.25) * f;
+    const cm = n(inputs, "cng.maintenanceCostPerMile", 0.25) * f;
+    return Math.max(dm, cm) * 0.6;
   }
 
-  function evPerMile(yearIndex: number, calendarYear: number): number {
+    function evOperatingCostYear(yearIndex: number, calendarYear: number): number {
     const kwhPerMile = n(inputs, "ev.kwhPerMile", 2);
-    const kwhPerTruckPerDay = milesPerDay * kwhPerMile;
-    const kwhFleetPerYear = kwhPerTruckPerDay * workDays * trucks;
 
+    // Annual energy
+    const kwhPerTruckPerYear = annualMilesPerTruck * kwhPerMile;
+    const kwhFleetPerYear = kwhPerTruckPerYear * trucks;
+
+    // Electricity rate ($/kWh)
     const elecRate = blendedElectricityRate(inputs, yearIndex);
 
-    const elecFuelPerMile = kwhPerMile * elecRate;
+    // Energy cost ($/year)
+    const electricityCostPerYear = kwhFleetPerYear * elecRate;
 
-    const peakDemandKw = (trucks * kwhPerTruckPerDay) / Math.max(0.1, n(inputs, "ev.hoursAvailableForCharging", 12));
+    // Demand charge ($/year) based on peak kW needed
+    const dailyFleetKWh = kwhFleetPerYear / Math.max(1, workDays);
+    const hoursAvail = Math.max(0.1, n(inputs, "ev.hoursAvailableForCharging", 12));
+    const simultaneousFactor = n(inputs, "ev.simultaneousChargingFactor", 0.6);
+
+const peakDemandKw =
+  (dailyFleetKWh / hoursAvail) * simultaneousFactor;
     const demandPerYear = peakDemandKw * demandChargeEffectiveRate(inputs, yearIndex) * 12;
-    const demandPerMile = demandPerYear / Math.max(1, fleetMilesPerYear);
 
+    // Fixed charges
     const customerChargePerYear = n(inputs, "utility.customerCharge", 0) * 12;
-    const customerChargePerMile = customerChargePerYear / Math.max(1, fleetMilesPerYear);
+    const cmsPerYear =
+    n(inputs, "evInfra.cmsCostPerChargerPerYear", 0) *
+    n(inputs, "evInfra.chargerQuantity", 0);
 
-    const cmsPerYear = n(inputs, "evInfra.cmsCostPerChargerPerYear", 0) * n(inputs, "evInfra.chargerQuantity", 0);
-    const cmsPerMile = cmsPerYear / Math.max(1, fleetMilesPerYear);
+  // Credits (negative numbers reduce cost)
+  const lcfs = evLcfsCreditPerYear(inputs, calendarYear, kwhFleetPerYear);
 
-    // Infrastructure annualized cost (sheet row173)
-    const chargerCost = n(inputs, "evInfra.chargerCost", 0);
-    const infraCostPerCharger = n(inputs, "evInfra.infrastructureCostPerCharger", 0);
-    const qty = n(inputs, "evInfra.chargerQuantity", 0);
-    const chargerFunding = n(inputs, "evInfra.chargerFunding", 0);
-    const totalInfraCost = Math.max(0, (chargerCost - chargerFunding + infraCostPerCharger) * qty);
-    const downPct = n(inputs, "evInfra.downPaymentPct", 1);
-    const down = totalInfraCost * downPct;
-    const financed = Math.max(0, totalInfraCost - down);
-    const infraInterest = (() => {
-      const term = clampInt(n(inputs, "evInfra.financingTermYears", 15), 0, 60);
-      const totalPaid = pmtMonthly(n(inputs, "evInfra.financingRateApr", 0.05) / 12, term * 12, financed, 0, 0) * (term * 12);
-      return Math.max(0, totalPaid - financed);
-    })();
+  // Convert everything to per-mile, then add maintenance
+  const perMile =
+    electricityCostPerYear / Math.max(1, fleetMilesPerYear) +
+    (demandPerYear + customerChargePerYear + cmsPerYear + lcfs) / Math.max(1, fleetMilesPerYear) +
+    evMaintenancePerMile(yearIndex);
 
-    const chargerLife = Math.max(1, n(inputs, "evInfra.chargerLifespanYears", 10));
-    const infraDep = Math.max(1, n(inputs, "evInfra.infrastructureDepreciationYears", 30));
-
-    const denom = Math.max(1e-9, chargerCost + infraCostPerCharger);
-    const chargerShare = chargerCost / denom;
-    const infraShare = infraCostPerCharger / denom;
-
-    const annualizedInfraCost =
-      (((chargerCost * qty) + chargerShare * infraInterest) / chargerLife) +
-      (((infraCostPerCharger * qty) + infraShare * infraInterest) / infraDep);
-
-    const annualizedInfraPerMile = annualizedInfraCost / Math.max(1, fleetMilesPerYear);
-
-    // LCFS EV credit
-    const lcfs = evLcfsCreditPerYear(inputs, calendarYear, kwhFleetPerYear);
-    const lcfsPerMile = lcfs / Math.max(1, fleetMilesPerYear);
-
-    // Maintenance and truck depreciation
-    const dieselMaintBase = n(inputs, "diesel.maintenanceCostPerMile", 0.25);
-    const cngMaintBase = n(inputs, "cng.maintenanceCostPerMile", 0.25);
-    const maintPerMile = evMaintenancePerMile(yearIndex, dieselMaintBase, cngMaintBase);
-    const truckPerMile = vehicleAnnualDepreciatedCostPerTruck("ev") / Math.max(1, annualMilesPerTruck);
-
-    // WAIRE (fleet-level)
-    const waire = wairePerYearFleet(inputs);
-    const wairePerMile = waire / Math.max(1, fleetMilesPerYear);
-
-    return (
-      elecFuelPerMile +
-      demandPerMile +
-      customerChargePerMile +
-      cmsPerMile +
-      annualizedInfraPerMile +
-      lcfsPerMile +
-      maintPerMile +
-      truckPerMile +
-      wairePerMile
-    );
+    return perMile * fleetMilesPerYear;
   }
 
-  // ---- Build series ----
-  const years = Array.from({ length: horizon + 1 }, (_, i) => i);
-  const annualCost: Record<Powertrain, number[]> = { diesel: [], cng: [], ev: [] };
+  // ---- Build cashflow arrays (costs positive, proceeds negative) ----
+  const cashflow: Record<Powertrain, number[]> = { diesel: [], cng: [], ev: [] };
+
+  cashflow.diesel = years.map(() => 0);
+  cashflow.cng = years.map(() => 0);
+  cashflow.ev = years.map(() => 0);
+
+  const dieselCap = vehicleCapexPlan("diesel");
+  const cngCap = vehicleCapexPlan("cng");
+  const evCap = vehicleCapexPlan("ev");
+
+  // ---------------- EVSE + Infrastructure (replacement + residual) ----------------
+const chargerQty = n(inputs, "evInfra.chargerQuantity", 0);
+
+// Chargers capex: (chargerCost - funding) * qty
+const chargerUnitCost = Math.max(0, n(inputs, "evInfra.chargerCost", 0) - n(inputs, "evInfra.chargerFunding", 0));
+const chargersCapexYear0 = chargerUnitCost * chargerQty;
+
+// Infrastructure capex: everything NOT the charger (per-charger infra cost * qty)
+const infraPerCharger = Math.max(0, n(inputs, "evInfra.infrastructureCostPerCharger", 0));
+const infrastructureCapexYear0 = infraPerCharger * chargerQty;
+
+// Lifetimes (we can add these to schema later)
+const chargerLifeYears = n(inputs, "evInfra.chargerLifeYears", 10);
+const infrastructureLifeYears = n(inputs, "evInfra.infrastructureLifeYears", 30);
+
+// Optional escalation for replacement purchases
+const evseEsc = n(inputs, "evInfra.costEscalationRate", 0);
+
+// Add schedules into EV cashflow
+if (chargersCapexYear0 > 0) {
+  addReplacementAssetSchedule({
+    cashflow: cashflow.ev,
+    years,
+    analysisYears: depYears,
+    assetLifeYears: chargerLifeYears,
+    baseCostYear0: chargersCapexYear0,
+    costEscalationRate: evseEsc,
+  });
+}
+
+if (infrastructureCapexYear0 > 0) {
+  addReplacementAssetSchedule({
+    cashflow: cashflow.ev,
+    years,
+    analysisYears: depYears,
+    assetLifeYears: infrastructureLifeYears,
+    baseCostYear0: infrastructureCapexYear0,
+    costEscalationRate: evseEsc,
+  });
+}
+ 
+
+ for (const y of years) {
+  const calYear = startYear + y;
+
+  if (y === 0) {
+    cashflow.diesel[y] += dieselCap.year0Outflow * trucks;
+    cashflow.cng[y] += cngCap.year0Outflow * trucks + cngStationYear0Outflow(0);
+
+    // EV: add only TRUCK down payment here (EVSE/infra already added above via schedule)
+    cashflow.ev[y] += evCap.year0Outflow * trucks;
+
+    continue;
+  }
+
+  const dieselOp = dieselOperatingCostYear(y);
+  const cngOp = cngOperatingCostYear(y, calYear);
+  const evOp = evOperatingCostYear(y, calYear);
+
+  const dieselPmt =
+    annualLoanPayment(dieselCap.annualApr, dieselCap.termYears, dieselCap.financedPrincipal, y) * trucks;
+  const cngPmt =
+    annualLoanPayment(cngCap.annualApr, cngCap.termYears, cngCap.financedPrincipal, y) * trucks;
+  const evPmt =
+    annualLoanPayment(evCap.annualApr, evCap.termYears, evCap.financedPrincipal, y) * trucks;
+
+  // Residual proceeds in final depreciation year (within our series window)
+  const dieselResidual = y === depYears ? dieselCap.residualInFinalYear * trucks : 0;
+  const cngResidual = y === depYears ? cngCap.residualInFinalYear * trucks : 0;
+  const evResidual = y === depYears ? evCap.residualInFinalYear * trucks : 0;
+
+  // IMPORTANT: actually add year costs into the cashflow arrays
+  cashflow.diesel[y] += dieselOp + dieselPmt - dieselResidual;
+  cashflow.cng[y] += cngOp + cngPmt - cngResidual;
+  cashflow.ev[y] += evOp + evPmt - evResidual;
+}
+
+  // Backwards-compatible naming: annualCost = cashflow
+  const annualCost = cashflow;
+
+  // True cumulative running sums
   const cumulativeCost: Record<Powertrain, number[]> = { diesel: [], cng: [], ev: [] };
-
-  // Choose a base calendar year for LCFS constant series. Spreadsheet uses 2025 onward in cost table.
-  const baseCalendarYear = startYear;
-
-  for (const y of years) {
-    if (y === 0) {
-      annualCost.diesel.push(0);
-      annualCost.cng.push(0);
-      annualCost.ev.push(0);
-      cumulativeCost.diesel.push(0);
-      cumulativeCost.cng.push(0);
-      cumulativeCost.ev.push(0);
-      continue;
+  for (const p of ["diesel", "cng", "ev"] as const) {
+    const out: number[] = [];
+    let running = 0;
+    for (let i = 0; i < years.length; i++) {
+      running += annualCost[p][i] ?? 0;
+      out.push(running);
     }
-    const cal = baseCalendarYear + y;
-
-    const dpm = dieselPerMile(y);
-    const cpm = cngPerMile(y, cal);
-    const epm = evPerMile(y, cal);
-
-    const dy = dpm * fleetMilesPerYear;
-    const cy = cpm * fleetMilesPerYear;
-    const ey = epm * fleetMilesPerYear;
-
-    annualCost.diesel.push(dy);
-    annualCost.cng.push(cy);
-    annualCost.ev.push(ey);
-
-    cumulativeCost.diesel.push(cumulativeCost.diesel[y - 1] + dy);
-    cumulativeCost.cng.push(cumulativeCost.cng[y - 1] + cy);
-    cumulativeCost.ev.push(cumulativeCost.ev[y - 1] + ey);
+    cumulativeCost[p] = out;
   }
-
-  const costPerMile = {
-    diesel: dieselPerMile(1),
-    cng: cngPerMile(1, baseCalendarYear + 1),
-    ev: evPerMile(1, baseCalendarYear + 1),
-  };
 
   const costPerYear = {
-    diesel: costPerMile.diesel * fleetMilesPerYear,
-    cng: costPerMile.cng * fleetMilesPerYear,
-    ev: costPerMile.ev * fleetMilesPerYear,
+    diesel: annualCost.diesel[1] ?? 0,
+    cng: annualCost.cng[1] ?? 0,
+    ev: annualCost.ev[1] ?? 0,
   };
 
-  // Five-year totals (use first 5 years of annual series)
-  const five = Math.min(5, horizon);
-  const fiveYearTco = {
-    diesel: annualCost.diesel.slice(1, five + 1).reduce((a, v) => a + v, 0),
-    cng: annualCost.cng.slice(1, five + 1).reduce((a, v) => a + v, 0),
-    ev: annualCost.ev.slice(1, five + 1).reduce((a, v) => a + v, 0),
+  const costPerMile = {
+    diesel: costPerYear.diesel / Math.max(1, fleetMilesPerYear),
+    cng: costPerYear.cng / Math.max(1, fleetMilesPerYear),
+    ev: costPerYear.ev / Math.max(1, fleetMilesPerYear),
   };
 
-  const fiveYearSavingsVsDiesel = {
-    ev: fiveYearTco.diesel - fiveYearTco.ev,
-    cng: fiveYearTco.diesel - fiveYearTco.cng,
-  };
+  // 5-year TCO includes Year 0..Year 5 (or to end if shorter)
+// Period TCO uses the same series window (already limited to min(horizon, depreciationYears))
+// so "period" = years.length-1
+const periodSliceEnd = years.length; // includes Year 0..last year in series
 
-  // Simple payback vs diesel (capex delta / annual savings) using year1 operating+capex amortized proxy.
-  function paybackYears(alt: Powertrain): number | null {
-    const altAnnual = costPerYear[alt];
-    const dieselAnnual = costPerYear.diesel;
-    const annualSavings = dieselAnnual - altAnnual;
-    if (annualSavings <= 0) return null;
+const periodTco = {
+  diesel: annualCost.diesel.slice(0, periodSliceEnd).reduce((a, v) => a + (v ?? 0), 0),
+  cng: annualCost.cng.slice(0, periodSliceEnd).reduce((a, v) => a + (v ?? 0), 0),
+  ev: annualCost.ev.slice(0, periodSliceEnd).reduce((a, v) => a + (v ?? 0), 0),
+};
 
-    const depYears = Math.max(1, n(inputs, "general.depreciationYears", 7));
-    const altTruckAnnual = vehicleAnnualDepreciatedCostPerTruck(alt === "ev" ? "ev" : alt) * trucks;
-    const dieselTruckAnnual = vehicleAnnualDepreciatedCostPerTruck("diesel") * trucks;
-    const capexDeltaApprox = (altTruckAnnual - dieselTruckAnnual) * depYears;
+const periodSavingsVsDiesel = {
+  ev: periodTco.diesel - periodTco.ev,
+  cng: periodTco.diesel - periodTco.cng,
+};
 
-    if (capexDeltaApprox <= 0) return 0;
-    return capexDeltaApprox / annualSavings;
+  function paybackFromCashflow(alt: Powertrain): number | null {
+    // incremental savings (diesel - alt). positive => alt is better
+    let cum = 0;
+    for (let i = 0; i < years.length; i++) {
+      const inc = (annualCost.diesel[i] ?? 0) - (annualCost[alt][i] ?? 0);
+      const prev = cum;
+      cum += inc;
+
+      if (i === 0) continue;
+      if (cum >= 0) {
+        const delta = cum - prev;
+        if (Math.abs(delta) < 1e-9) return i;
+        const frac = (0 - prev) / delta;
+        return (i - 1) + Math.min(1, Math.max(0, frac));
+      }
+    }
+    return null;
   }
 
-  const payback = { ev: paybackYears("ev"), cng: paybackYears("cng") };
+  const payback = { ev: paybackFromCashflow("ev"), cng: paybackFromCashflow("cng") };
 
   return {
     startYear,
@@ -490,9 +558,9 @@ export function calculate(inputs: Inputs): CalcSummary {
     fleetMilesPerYear,
     costPerMile,
     costPerYear,
-    fiveYearTco,
-    fiveYearSavingsVsDiesel,
+    fiveYearTco: periodTco,
+    fiveYearSavingsVsDiesel: periodSavingsVsDiesel,
     paybackYears: payback,
-    series: { years, cumulativeCost, annualCost },
+    series: { years, cumulativeCost, annualCost, cashflow },
   };
 }

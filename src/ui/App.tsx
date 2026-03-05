@@ -10,8 +10,9 @@ import { ModeToggle } from "./components/ModeToggle";
 import { ScenarioManager } from "./components/ScenarioManager";
 import rushLogo from "../assets/rush-logo.png";
 
+
 export function App() {
-  const [mode, setMode] = useState<Mode>("sales");
+  const [mode, setMode] = useState<Mode>("engineer");
   const [inputs, setInputs] = useState<Inputs>(() => buildDefaultInputs());
 
   const issues = validateInputs(inputs);
@@ -32,9 +33,9 @@ export function App() {
       <header className="sticky top-0 z-20 bg-white border-b border-[rgba(0,0,0,0.10)]">
   <div className="mx-auto max-w-[1400px] px-4 py-3 flex items-center justify-between gap-3">
     <div className="flex items-center gap-3">
-      <img src={rushLogo} alt="Rush Truck Centers" className="h-14 md:h-16 object-contain w-auto" />
+      <img src={rushLogo} alt="Rush Truck Centers" className="h-15 md:h-20 object-contain w-auto" />
       <div className="leading-tight">
-        <div className="text-[15px] font-bold text-rush-black uppercase tracking-wide">Alternative Fuel ROI Calculator</div>
+        <div className="text-[28px] font-bold text-rush-black uppercase tracking-wide">Alternative Fuel ROI Calculator</div>
         <div className="text-xs text-grayrush-medium">Hybrid: Sales ↔ Engineer</div>
       </div>
     </div>
@@ -61,19 +62,12 @@ export function App() {
           </section>
 
           <section className="space-y-4">
-            {issues.length > 0 && (
-              <div className="rounded-xl2 border border-[rgba(237,28,36,0.30)] bg-white p-3">
-                <div className="text-sm font-semibold text-rush-black">Input checks</div>
-                <ul className="mt-2 text-sm text-grayrush-dark list-disc pl-5">
-                  {issues.slice(0, 4).map((i) => (
-                    <li key={i.key}>{i.message}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            
 
             <ResultsDashboard summary={summary} mode={mode} />
             <ChartsPanel summary={summary} />
+            
+            
           </section>
         </div>
       </main>
