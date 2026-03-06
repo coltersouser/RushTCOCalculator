@@ -4,27 +4,27 @@ export const inputSchema: InputSchema = {
   "groups": [
     {
       "id": "general",
-      "label": "General",
+      "label": "General Information",
       "order": 1
     },
     {
       "id": "diesel",
-      "label": "Diesel",
+      "label": "Diesel Baseline Details",
       "order": 2
     },
     {
       "id": "ev",
-      "label": "Electric",
+      "label": "Electric Vehicle Details",
       "order": 3
     },
     {
       "id": "evInfra",
-      "label": "EV Infrastructure",
+      "label": "EVSE & Infrastructure",
       "order": 4
     },
     {
       "id": "utility",
-      "label": "Utility Pricing",
+      "label": "Electricity Pricing",
       "order": 5
     },
     {
@@ -34,17 +34,17 @@ export const inputSchema: InputSchema = {
     },
     {
       "id": "cng",
-      "label": "CNG",
+      "label": "CNG Vehicle Details",
       "order": 7
     },
     {
       "id": "cngStation",
-      "label": "CNG Station",
+      "label": "CNG Station Details",
       "order": 8
     },
     {
       "id": "financial",
-      "label": "Financial",
+      "label": "Financial Details",
       "order": 9
     }
   ],
@@ -161,7 +161,14 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 200,
       "step": 1,
-      "advanced": true
+      "advanced": true,
+       "showWhen": [
+        {
+          "key": "general.lcfsApplicable",
+          "equals": true
+        }
+      ]
+      
     },
     {
       "key": "general.ngCarbonIntensity",
@@ -172,7 +179,13 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 200,
       "step": 1,
-      "advanced": true
+      "advanced": true,
+       "showWhen": [
+        {
+          "key": "general.lcfsApplicable",
+          "equals": true
+        }
+      ]
     },
     {
       "key": "general.lcfsCreditValuePerUnit",
@@ -307,7 +320,7 @@ export const inputSchema: InputSchema = {
   "label": "Simultaneous Charging Factor",
   "group": "ev",
   "type": "percent",
-  "default": .6,
+  "default": 1,
   "min": .1,
   "max": 1,
   "step": .05,
@@ -469,7 +482,7 @@ export const inputSchema: InputSchema = {
       "label": "SCE phased-in demand charge",
       "group": "utility",
       "type": "toggle",
-      "default": true,
+      "default": false,
       "advanced": true
     },
     {
@@ -477,7 +490,7 @@ export const inputSchema: InputSchema = {
       "label": "TOU rate schedule",
       "group": "utility",
       "type": "toggle",
-      "default": true,
+      "default": false,
       "advanced": true
     },
     {
@@ -785,7 +798,7 @@ export const inputSchema: InputSchema = {
       "label": "Installing CNG filling station",
       "group": "cngStation",
       "type": "toggle",
-      "default": true,
+      "default": false,
       "advanced": true
     },
     {
@@ -1065,7 +1078,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "cng.fuelPricePerGge",
-      "label": "CNG fuel price ($/GGE)",
+      "label": "CNG fuel price ($/DGE)",
       "group": "cng",
       "type": "currency",
       "default": 3.5,
