@@ -10,7 +10,13 @@ function sumNeg(items: { value: number }[]) {
   return items.reduce((a, x) => a + (x.value < 0 ? x.value : 0), 0);
 }
 
-export function Year0DivergingBar({ summary }: { summary: CalcSummary }) {
+export function Year0DivergingBar({
+  summary,
+  activeTech,
+}: {
+  summary: CalcSummary;
+  activeTech: { diesel: boolean; cng: boolean; ev: boolean };
+}) {
   const mk = (p: Powertrain) => {
     const items = summary.year0Breakdown[p] ?? [];
     return {
@@ -21,7 +27,14 @@ export function Year0DivergingBar({ summary }: { summary: CalcSummary }) {
     };
   };
 
-  const data = [mk("diesel"), mk("cng"), mk("ev")];
+  const rawData = [mk("diesel"), mk("cng"), mk("ev")];
+
+const data = rawData.filter((row) => {
+  if (row.name === "DIESEL") return activeTech.diesel;
+  if (row.name === "CNG") return activeTech.cng;
+  if (row.name === "EV") return activeTech.ev;
+  return true;
+});
 
   return (
     <Card title="Year 0 Capital Stack (Costs vs Offsets)">
