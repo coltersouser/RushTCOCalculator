@@ -10,35 +10,55 @@ function shouldShowField(inputs: Inputs, key: string): boolean {
   return f.showWhen.every((r) => inputs[r.key] === r.equals);
 }
 
+
 export function InputPanel({
   mode,
   inputs,
   setInput,
-  errorsByKey
+  errorsByKey,
+  activeTech,
 }: {
-  mode: Mode;
+  mode: "sales" | "engineer";
   inputs: Inputs;
   setInput: (key: string, value: number | boolean | null) => void;
-  errorsByKey: Record<string, string | undefined>;
-}) {
+  errorsByKey: Record<string, string>;
+  activeTech: { diesel: boolean; cng: boolean; ev: boolean };
+}) 
+{
+  function isFieldVisible(key: string) {
+    if (key.startsWith("diesel.")) return true; // diesel always on
+    if (key.startsWith("cng.") || key.startsWith("cngStation.")) return activeTech.cng;
+    if (key.startsWith("ev.") || key.startsWith("evInfra.") || key.startsWith("utility.")) return activeTech.ev;
+    return true;
+  }
+
+  // rest of component...
+
+
   const [query, setQuery] = useState("");
 
   const groups = useMemo(() => [...inputSchema.groups].sort((a, b) => a.order - b.order), []);
 
   const fieldsByGroup = useMemo(() => {
-    const map = new Map<string, typeof inputSchema.fields>();
-    for (const g of groups) map.set(g.id, []);
-    for (const f of inputSchema.fields) {
-      if (mode === "sales" && f.advanced) continue;
-      if (query.trim()) {
-        const q = query.trim().toLowerCase();
-        if (!(f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q))) continue;
-      }
-      if (!shouldShowField(inputs, f.key)) continue;
-      (map.get(f.group) ?? []).push(f);
+  const map = new Map<string, typeof inputSchema.fields>();
+  for (const g of groups) map.set(g.id, []);
+
+  for (const f of inputSchema.fields) {
+    if (mode === "sales" && f.advanced) continue;
+
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      if (!(f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q))) continue;
     }
-    return map;
-  }, [groups, mode, query, inputs]);
+
+    if (!shouldShowField(inputs, f.key)) continue;
+    if (!isFieldVisible(f.key)) continue;   // <-- ADD THIS
+
+    (map.get(f.group) ?? []).push(f);
+  }
+
+  return map;
+}, [groups, mode, query, inputs, activeTech]);
 
   return (
     <div className="h-full flex flex-col">
@@ -72,7 +92,10 @@ export function InputPanel({
                 <span className="text-xs text-grayrush-medium">{fields.length} fields</span>
               </summary>
               <div className="p-4 space-y-4">
-                {fields.map((f) => (
+
+              
+
+                {fields.filter((f) => isFieldVisible(f.key)).map((f) => (
                   <Field key={f.key} field={f} value={inputs[f.key]} onChange={setInput} error={errorsByKey[f.key]} />
                 ))}
               </div>

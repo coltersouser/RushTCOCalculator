@@ -35,7 +35,15 @@ function findPaybackYear(data: Array<{ year: number; value: number }>): number |
   return null;
 }
 
-export function ChartsPanel({ summary }: { summary: CalcSummary }) {
+export function ChartsPanel({
+  summary,
+  activeTech,
+}: {
+  summary: CalcSummary;
+  activeTech: { diesel: boolean; cng: boolean; ev: boolean };
+})
+
+{
   const data = summary.series.years.map((y, idx) => {
     const dieselCum = summary.series.cumulativeCost.diesel[idx] ?? 0;
     const cngCum = summary.series.cumulativeCost.cng[idx] ?? 0;
@@ -57,14 +65,14 @@ export function ChartsPanel({ summary }: { summary: CalcSummary }) {
   // Put labels near the last point (keeps it simple & readable)
   const last = data[data.length - 1];
   const paybackLabel =
-    evPayback || cngPayback
-      ? [
-          evPayback ? `EV Payback: ${evPayback.toFixed(1)} yrs` : null,
-          cngPayback ? `CNG Payback: ${cngPayback.toFixed(1)} yrs` : null,
-        ]
-          .filter(Boolean)
-          .join(" • ")
-      : "Payback: N/A";
+  activeTech.ev || activeTech.cng
+    ? [
+        activeTech.ev && evPayback ? `EV Payback: ${evPayback.toFixed(1)} yrs` : null,
+        activeTech.cng && cngPayback ? `CNG Payback: ${cngPayback.toFixed(1)} yrs` : null,
+      ]
+        .filter(Boolean)
+        .join(" • ") || "Payback: N/A"
+    : "Payback: N/A";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-1 gap-4">
@@ -84,9 +92,18 @@ export function ChartsPanel({ summary }: { summary: CalcSummary }) {
                 labelFormatter={(label) => `Year ${label}`}
               />
               <Legend />
+              {activeTech.diesel && (
               <Line type="monotone" dataKey="diesel" stroke="#ed1c24" strokeWidth={2} dot={false} />
+              )}
+
+              {activeTech.cng && (
               <Line type="monotone" dataKey="cng" stroke="#4b4c4c" strokeWidth={2} dot={false} />
+              )}
+
+              {activeTech.ev && (
               <Line type="monotone" dataKey="ev" stroke="#eeb111" strokeWidth={3} dot={false} />
+              )}
+
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -109,8 +126,13 @@ export function ChartsPanel({ summary }: { summary: CalcSummary }) {
                 <Label value="Payback Line ($0)" position="insideTopLeft" fill="#939598" fontSize={12} />
               </ReferenceLine>
 
+              {activeTech.cng && (
               <Line type="monotone" dataKey="cngSavings" name="CNG Savings" stroke="#4b4c4c" strokeWidth={2} dot={false} />
+              )}
+
+              {activeTech.ev && (
               <Line type="monotone" dataKey="evSavings" name="EV Savings" stroke="#eeb111" strokeWidth={3} dot={false} />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>

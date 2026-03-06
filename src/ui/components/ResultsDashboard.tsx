@@ -2,7 +2,15 @@ import type { CalcSummary } from "../../engine/calc";
 import { Card } from "./Card";
 import { formatCurrencyPrecise, formatCurrency } from "../../utils/format";
 
-export function ResultsDashboard({ summary, mode }: { summary: CalcSummary; mode: "sales" | "engineer" }) {
+export function ResultsDashboard({
+  summary,
+  mode,
+  activeTech,
+}: {
+  summary: CalcSummary;
+  mode: "sales" | "engineer";
+  activeTech: { diesel: boolean; cng: boolean; ev: boolean };
+}) {
   const lastIdx = summary.series.years.length - 1;
 
   const lifetimeSavingsEvVsDiesel =
@@ -20,48 +28,57 @@ export function ResultsDashboard({ summary, mode }: { summary: CalcSummary; mode
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {activeTech.ev && (
         <Card title="Cost / Mile (EV)">
           <div className="text-2xl font-bold text-rush-black">{formatCurrencyPrecise(summary.costPerMile.ev)}</div>
           <div className="text-xs text-grayrush-medium mt-1">All-in model (Year 1)</div>
         </Card>
+        )}
 
         <Card title="Cost / Mile (Diesel)">
           <div className="text-2xl font-bold text-rush-black">{formatCurrencyPrecise(summary.costPerMile.diesel)}</div>
           <div className="text-xs text-grayrush-medium mt-1">All-in model (Year 1)</div>
         </Card>
-
+        {activeTech.cng && (
         <Card title="Cost / Mile (CNG)">
           <div className="text-2xl font-bold text-rush-black">{formatCurrencyPrecise(summary.costPerMile.cng)}</div>
           <div className="text-xs text-grayrush-medium mt-1">All-in model (Year 1)</div>
         </Card>
+)}
 
+        {activeTech.ev && (
         <Card title="Lifetime Savings EV over Diesel">
           <div className={`text-2xl font-bold ${evWinsLifetime ? "text-rush-black" : "text-rush-red"}`}>
             {formatCurrency(lifetimeSavingsEvVsDiesel)}
           </div>
           <div className="text-xs text-grayrush-medium mt-1">EV vs Diesel</div>
         </Card>
-
+        )}
+        {activeTech.ev && (
         <Card title="Payback (EV)">
           <div className="text-2xl font-bold text-rush-black">
             {summary.paybackYears.ev === null ? "—" : `${summary.paybackYears.ev.toFixed(1)} yrs`}
           </div>
           <div className="text-xs text-grayrush-medium mt-1">Simple payback</div>
         </Card>
+        )}
 
+        {activeTech.cng && (
         <Card title="Lifetime Savings CNG over Diesel">
           <div className={`text-2xl font-bold ${lifetimeSavingsCngVsDiesel > 0 ? "text-rush-black" : "text-rush-red"}`}>
             {formatCurrency(lifetimeSavingsCngVsDiesel)}
           </div>
           <div className="text-xs text-grayrush-medium mt-1">CNG vs Diesel</div>
         </Card>
-
+        )}
+        {activeTech.cng && (
         <Card title="Payback (CNG)">
           <div className="text-2xl font-bold text-rush-black">
             {paybackCng === null ? "—" : `${paybackCng.toFixed(1)} yrs`}
           </div>
           <div className="text-xs text-grayrush-medium mt-1">Simple payback</div>
         </Card>
+)}
 
         <Card title="Annual Miles / Truck">
           <div className="text-2xl font-bold text-rush-black">{summary.annualMilesPerTruck.toLocaleString()}</div>
