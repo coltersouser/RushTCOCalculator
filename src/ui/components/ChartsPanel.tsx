@@ -108,7 +108,7 @@ export function ChartsPanel({
           </ResponsiveContainer>
         </div>
         <div className="mt-2 text-xs text-grayrush-medium">
-          Includes Year 0 capex, annual operating costs, financing payments, and residual value timing. (Chargers and Infrastructure show a residual based on lifespan differences between those and the Truck)
+          Includes Year 0 capex, annual operating costs, financing payments, and residual value timing. (Chargers, Infrastructure, and CNG Stations show a residual based on lifespan differences between those and the Truck)
         </div>
       </Card>
 

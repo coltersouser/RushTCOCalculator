@@ -30,7 +30,7 @@ export const inputSchema: InputSchema = {
     {
       "id": "chargingSplit",
       "label": "Charging Time Split",
-      "order": 6
+      "order": 6,
     },
     {
       "id": "cng",
@@ -58,7 +58,8 @@ export const inputSchema: InputSchema = {
       "min": 1,
       "max": 30,
       "step": 1,
-      "advanced": true
+      "advanced": true,
+      "help": "This is the timeframe in which the modeling is built on"
     },
     {
       "key": "general.vehicleCount",
@@ -74,7 +75,7 @@ export const inputSchema: InputSchema = {
 
     {
       "key": "grant.used",
-      "label": "Grant Used?",
+      "label": "Will there be a grant?",
       "group": "general",
       "type": "toggle",
       "default": false,
@@ -83,7 +84,7 @@ export const inputSchema: InputSchema = {
 
     {
       "key": "scrap.required",
-      "label": "Scrap Required?",
+      "label": "Does the grant require scrappage?",
       "group": "general",
       "type": "toggle",
       "default": false,
@@ -99,15 +100,16 @@ export const inputSchema: InputSchema = {
 
     {
       "key": "general.isDrayageTruck",
-      "label": "Drayage truck (Ports / Clean Truck Fee)",
+      "label": "Drayage truck Clean Truck Fee Applicable?",
       "group": "general",
       "type": "toggle",
       "default": false,
-      "advanced": true
+      "advanced": true,
+      "help": "Toggle on if POLA/Long beach drayage truck only"
     },
     {
       "key": "general.portTripsPerDay",
-      "label": "Port trips per day (LA/LB)",
+      "label": "Port trips per day",
       "group": "general",
       "type": "number",
       "default": 2,
@@ -115,6 +117,7 @@ export const inputSchema: InputSchema = {
       "max": 20,
       "step": 0.5,
       "advanced": true,
+      "help": "The number of trips per day will have the fee associated to Diesel and CNG units",
       "showWhen": [
         {
           "key": "general.isDrayageTruck",
@@ -146,7 +149,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "general.lcfsApplicable",
-      "label": "CA LCFS applicable",
+      "label": "Calculate for CA LCFS Credits?",
       "group": "general",
       "type": "toggle",
       "default": false,
@@ -162,6 +165,7 @@ export const inputSchema: InputSchema = {
       "max": 200,
       "step": 1,
       "advanced": true,
+      "help": "This is needed for LCFS calculations",
        "showWhen": [
         {
           "key": "general.lcfsApplicable",
@@ -180,6 +184,7 @@ export const inputSchema: InputSchema = {
       "max": 200,
       "step": 1,
       "advanced": true,
+      "help": "This is needed for LCFS calculations",
        "showWhen": [
         {
           "key": "general.lcfsApplicable",
@@ -197,6 +202,7 @@ export const inputSchema: InputSchema = {
       "max": 500,
       "step": 1,
       "advanced": true,
+      "help": "A good benchmark can be found at https://www.neste.com/investors/market-data/renewable-products",
       "showWhen": [
         {
           "key": "general.lcfsApplicable",
@@ -206,7 +212,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "ev.vehicleCost",
-      "label": "EV vehicle cost",
+      "label": "Electric Vehicle purchase cost",
       "group": "ev",
       "type": "currency",
       "default": 400000,
@@ -225,6 +231,7 @@ export const inputSchema: InputSchema = {
       "max": 1000000,
       "step": 1000,
       "advanced": true,
+      "help": "How much is the truck worth that is being scrapped for the grant? This is considered a Year 0 cost",
       "showWhen": [
         {
           "key": "scrap.required",
@@ -269,7 +276,8 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 1,
       "step": 0.05,
-      "advanced": true
+      "advanced": true,
+      "help": "If assuming a cash deal leave at 100%"
     },
     {
       "key": "ev.financingTermYears",
@@ -284,7 +292,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "ev.residualValue",
-      "label": "EV residual value",
+      "label": "Assumed residual value for EV at end of term",
       "group": "ev",
       "type": "currency",
       "default": 10000,
@@ -310,10 +318,11 @@ export const inputSchema: InputSchema = {
       "group": "ev",
       "type": "number",
       "default": 2,
-      "min": 0,
+      "min": 0.5,
       "max": 10,
       "step": 0.05,
-      "advanced": false
+      "advanced": false,
+      "help": "Safe fallback assumptions: (Class 5 = .8) (Class 6 = 1) (Class 7 = 1.4) (Class 8 = 2)"
     },
     {
   "key": "ev.simultaneousChargingFactor",
@@ -325,19 +334,20 @@ export const inputSchema: InputSchema = {
   "max": 1,
   "step": .05,
   "advanced": true,
-  "help": "Percent of trucks that will be charging at the same time"
+  "help": "Percent of trucks that will be charging at the same time. This will have an effect on demand charge cost calculations in the EVSE section"
 },
     
     {
       "key": "evInfra.chargerCost",
-      "label": "Charger cost",
+      "label": "EVSE (Charger) purchase cost",
       "group": "evInfra",
       "type": "currency",
       "default": 0,
       "min": 0,
       "max": 500000,
       "step": 500,
-      "advanced": true
+      "advanced": true,
+      "help": "This should be the cost for EACH not total"
     },
     {
       "key": "evInfra.chargerLifeYears",
@@ -348,16 +358,17 @@ export const inputSchema: InputSchema = {
       "min": 1,
       "max": 40,
       "step": 1,
-      "advanced": true
+      "advanced": true,
+      "help": "How long do you expect a charger to last. 10 years for a reputable charger should be an OK assumption"
     },
     {
       "key": "evInfra.chargerFunding",
-      "label": "Charger grant funding",
+      "label": "Grant funding received for charging install",
       "group": "evInfra",
       "type": "currency",
       "default": 0,
       "min": 0,
-      "max": 500000,
+      "max": 5000000,
       "step": 1000,
       "advanced": true
     },
@@ -374,14 +385,15 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "evInfra.infrastructureLifeYears",
-      "label": "Infrastructure lifespan (years",
+      "label": "Infrastructure lifespan (years)",
       "group": "evInfra",
       "type": "number",
       "default": 30,
       "min": 1,
       "max": 60,
       "step": 1,
-      "advanced": true
+      "advanced": true,
+      "help": "How long do you expect greater infrastructure to last (transfomers, underground components, concrete pads, etc.) 30 years is base assumption"
     },
     {
       "key": "evInfra.chargerQuantity",
@@ -392,11 +404,12 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 500,
       "step": 1,
-      "advanced": true
+      "advanced": true,
+      "help": "How many chargers will be installed"
     },
     {
       "key": "evInfra.cmsCostPerChargerPerYear",
-      "label": "CMS cost per charger / year",
+      "label": "Charge Management Software (CMS) cost per charger / year",
       "group": "evInfra",
       "type": "currency",
       "default": 0,
@@ -425,7 +438,8 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 1,
       "step": 0.05,
-      "advanced": true
+      "advanced": true,
+      "help": "If assuming a cash deal leave at 100%"
     },
     {
       "key": "evInfra.financingTermYears",
@@ -448,6 +462,7 @@ export const inputSchema: InputSchema = {
       "max": 1,
       "step": 0.05,
       "advanced": true,
+      "help": "If using a broker to monetize LCFS what percentage is expected to be retained",
       "showWhen": [
         {
           "key": "general.lcfsApplicable",
@@ -464,6 +479,7 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 200,
       "step": 0.5,
+      "help": "Demand charge is different than electricity cost. This is a charger per kW drawn at a given time should be available on a utility bill",
       "advanced": true
     },
     {
@@ -475,6 +491,7 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 5000,
       "step": 10,
+      "help": "Most utilities charge a monthly fee for services customer charge is just one thing they call it but it has different names based on utility company",
       "advanced": true
     },
     {
@@ -483,26 +500,29 @@ export const inputSchema: InputSchema = {
       "group": "utility",
       "type": "toggle",
       "default": false,
-      "advanced": true
+      "advanced": true,
+      "help": "Toggle ON ONLY if Southern California Edison is the utility provider"
     },
     {
       "key": "utility.isTouSchedule",
-      "label": "TOU rate schedule",
+      "label": "Time of Use rate schedule",
       "group": "utility",
       "type": "toggle",
       "default": false,
-      "advanced": true
+      "advanced": true,
+      "help": "Toggle ON only if customer is on a Time of Use rate Schedule, this is a more advanced model than flat rate"
     },
     {
       "key": "utility.rateSummerOnPeak",
       "label": "Summer on-peak rate ($/kWh)",
       "group": "utility",
       "type": "currency",
-      "default": 0.08,
+      "default": 0.80,
       "min": 0,
       "max": 2,
       "step": 0.001,
       "advanced": true,
+      "help": "",
       "showWhen": [
         {
           "key": "utility.isTouSchedule",
@@ -615,7 +635,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "ev.pctChargeSuperOffPeak",
-      "label": "% Charging in Super Off-Peak",
+      "label": "% Charging in Off-Peak (This group must total to 100%)",
       "group": "chargingSplit",
       "type": "number",
       "default": 70,
@@ -623,6 +643,7 @@ export const inputSchema: InputSchema = {
       "max": 100,
       "step": 1,
       "advanced": true,
+      "help": "9 p.m. to 6 a.m.",
       "showWhen": [
         {
           "key": "utility.isTouSchedule",
@@ -632,7 +653,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "ev.pctChargeOffPeak",
-      "label": "% Charging in Off-Peak",
+      "label": "% Charging in Mid-Peak",
       "group": "chargingSplit",
       "type": "number",
       "default": 25,
@@ -640,6 +661,7 @@ export const inputSchema: InputSchema = {
       "max": 100,
       "step": 1,
       "advanced": true,
+      "help": "6 a.m to 4 p.m.",
       "showWhen": [
         {
           "key": "utility.isTouSchedule",
@@ -649,7 +671,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "ev.pctChargeMidOnPeak",
-      "label": "% Charging in Mid/On Peak",
+      "label": "% Charging in On Peak",
       "group": "chargingSplit",
       "type": "number",
       "default": 5,
@@ -657,6 +679,7 @@ export const inputSchema: InputSchema = {
       "max": 100,
       "step": 1,
       "advanced": true,
+      "help": "4 p.m. to 9 p.m.",
       "showWhen": [
         {
           "key": "utility.isTouSchedule",
@@ -678,7 +701,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "cng.truckCost",
-      "label": "CNG truck cost",
+      "label": "CNG truck purchase cost",
       "group": "cng",
       "type": "currency",
       "default": 230000,
@@ -697,6 +720,7 @@ export const inputSchema: InputSchema = {
       "max": 1000000,
       "step": 1000,
       "advanced": true,
+      "help": "How much is the truck worth that is being scrapped for the grant? This is considered a Year 0 cost",
       "showWhen": [
         {
           "key": "scrap.required",
@@ -741,7 +765,8 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 1,
       "step": 0.05,
-      "advanced": true
+      "advanced": true,
+      "help": "If assuming a cash deal leave at 100%"
     },
     {
       "key": "cng.financingTermYears",
@@ -756,7 +781,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "cng.residualValue",
-      "label": "CNG residual value",
+      "label": "Assumed residual value for CNG vehilce at end of term",
       "group": "cng",
       "type": "currency",
       "default": 45000,
@@ -779,13 +804,14 @@ export const inputSchema: InputSchema = {
     {
       "key": "cng.lcfsCreditShare",
       "label": "LCFS credit share (CNG)",
-      "group": "cng",
+      "group": "general",
       "type": "percent",
-      "default": 0,
+      "default": 0.8,
       "min": 0,
       "max": 1,
       "step": 0.05,
       "advanced": true,
+      "help": "If using a broker to monetize LCFS what percentage is expected to be retained",
       "showWhen": [
         {
           "key": "general.lcfsApplicable",
@@ -799,7 +825,8 @@ export const inputSchema: InputSchema = {
       "group": "cngStation",
       "type": "toggle",
       "default": false,
-      "advanced": true
+      "advanced": true,
+      "help": "This should only be considered on large truck deployments",
     },
     {
       "key": "cngStation.installationCost",
@@ -835,9 +862,10 @@ export const inputSchema: InputSchema = {
         }
       ]
     },
+    
     {
-      "key": "cngStation.capitalDepreciationYears",
-      "label": "Station depreciation (years)",
+      "key": "cngStation.stationLifeYears",
+      "label": "CNG Station Lifespan (years)",
       "group": "cngStation",
       "type": "number",
       "default": 30,
@@ -879,6 +907,7 @@ export const inputSchema: InputSchema = {
       "max": 1,
       "step": 0.05,
       "advanced": true,
+      "help": "If assuming a cash deal leave at 100%",
       "showWhen": [
         {
           "key": "cngStation.installingStation",
@@ -949,7 +978,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "diesel.truckCost",
-      "label": "Diesel truck cost",
+      "label": "Diesel truck purchase cost",
       "group": "diesel",
       "type": "currency",
       "default": 160000,
@@ -968,6 +997,7 @@ export const inputSchema: InputSchema = {
       "max": 1000000,
       "step": 1000,
       "advanced": true,
+      "help": "How much is the truck worth that is being scrapped for the grant? This is considered a Year 0 cost",
       "showWhen": [
         {
           "key": "scrap.required",
@@ -1012,7 +1042,8 @@ export const inputSchema: InputSchema = {
       "min": 0,
       "max": 1,
       "step": 0.05,
-      "advanced": true
+      "advanced": true,
+      "help": "If assuming a cash deal leave at 100%"
     },
     {
       "key": "diesel.financingTermYears",
@@ -1027,7 +1058,7 @@ export const inputSchema: InputSchema = {
     },
     {
       "key": "diesel.residualValue",
-      "label": "Diesel residual value",
+      "label": "Assumed residual value for diesel vehicle at end of term",
       "group": "diesel",
       "type": "currency",
       "default": 5000,
@@ -1068,7 +1099,7 @@ export const inputSchema: InputSchema = {
       "max": 500,
       "step": 1,
       "advanced": true,
-      "help": "Used when Drayage truck is ON.",
+      "help": "$10 per twenty foot equivalent (TEU) 20' container = $10 40' container = $20",
       "showWhen": [
         {
           "key": "general.isDrayageTruck",
@@ -1111,7 +1142,7 @@ export const inputSchema: InputSchema = {
     
     {
       "key": "general.modelStartYear",
-      "label": "Model start year (Year 0)",
+      "label": "Model start year",
       "group": "general",
       "type": "number",
       "default": 2026,
@@ -1119,7 +1150,7 @@ export const inputSchema: InputSchema = {
       "max": 2050,
       "step": 1,
       "advanced": true,
-      "help": "Year 0 will be labeled as this year. Year 1 = start year + 1."
+      "help": "Year 0 will be labeled as this year. Year 1 = start year + 1. Some calculations like LCFS are based on this year"
     }
   ]
 };
