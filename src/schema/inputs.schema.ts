@@ -1,54 +1,80 @@
 import type { InputSchema } from "../types/schema";
+import { ScenarioManager } from "../ui/components/ScenarioManager";
 
 export const inputSchema: InputSchema = {
   "groups": [
     {
+      "id": "customerinfo",
+      "label": "Customer Information",
+      "order": 1
+    },
+    {
       "id": "general",
       "label": "General Information",
-      "order": 1
+      "order": 2
     },
     {
       "id": "diesel",
       "label": "Diesel Baseline Details",
-      "order": 2
+      "order": 3
     },
     {
       "id": "ev",
       "label": "Electric Vehicle Details",
-      "order": 3
+      "order": 4
     },
     {
       "id": "evInfra",
       "label": "EVSE & Infrastructure",
-      "order": 4
+      "order": 5
     },
     {
       "id": "utility",
       "label": "Electricity Pricing",
-      "order": 5
+      "order": 6
     },
     {
       "id": "chargingSplit",
       "label": "Charging Time Split",
-      "order": 6,
+      "order": 7,
     },
     {
       "id": "cng",
       "label": "CNG Vehicle Details",
-      "order": 7
+      "order": 8
     },
     {
       "id": "cngStation",
       "label": "CNG Station Details",
-      "order": 8
+      "order": 9
     },
     {
       "id": "financial",
       "label": "Financial Details",
-      "order": 9
+      "order": 10
     }
   ],
   "fields": [
+
+    {
+      key: "report.customerName",
+      label: "Customer name",
+      group: "customerinfo",
+      type: "text",
+      default: "",
+      advanced: false,
+      help: "Used in the printed ROI report header."
+    },
+    {
+      key: "report.scenarioName",
+      label: "Scenario name",
+      group: "customerinfo",
+      type: "text",
+      default: "",
+      advanced: false,
+      help: "Used in the printed ROI report header."
+    },
+
     {
       "key": "general.depreciationYears",
       "label": "Vehicle Lifespan",
@@ -72,6 +98,8 @@ export const inputSchema: InputSchema = {
       "step": 1,
       "advanced": false
     },
+
+    
 
     {
       "key": "grant.used",

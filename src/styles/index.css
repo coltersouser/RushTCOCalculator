@@ -20,3 +20,37 @@ input, select, button, textarea { font: inherit; }
 
 body { font-family: "Arial Narrow", Arial, sans-serif; }
 h1, h2, h3 { letter-spacing: 0.02em; }
+
+@media print {
+  @page {
+    size: auto;
+    margin: 0.5in;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-force-break {
+    break-before: page;
+    page-break-before: always;
+  }
+}
+
+@media print {
+  .report-section-title {
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+}

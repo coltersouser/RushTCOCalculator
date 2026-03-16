@@ -1,5 +1,5 @@
 export type Mode = "sales" | "engineer";
-export type FieldType = "currency" | "number" | "percent" | "toggle";
+export type FieldType = "currency" | "number" | "percent" | "toggle" | "text" ;
 
 export type ShowWhenRule = { key: string; equals: boolean | number | string | null; };
 
@@ -8,7 +8,7 @@ export type FieldSchema = {
   label: string;
   group: string;
   type: FieldType;
-  default: number | boolean | null;
+  default: number | boolean | null | string;
   min?: number;
   max?: number;
   step?: number;
@@ -21,4 +21,12 @@ export type GroupSchema = { id: string; label: string; order: number; descriptio
 
 export type InputSchema = { groups: GroupSchema[]; fields: FieldSchema[]; };
 
-export type Inputs = Record<string, number | boolean | null>;
+export type Inputs = Record<string, number | boolean | string | null>;
+
+export type InputType =
+  | "number"
+  | "currency"
+  | "percent"
+  | "toggle"
+  | "select"
+  | "text";

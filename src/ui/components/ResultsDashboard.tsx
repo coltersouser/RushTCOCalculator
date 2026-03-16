@@ -244,8 +244,8 @@ export function ResultsDashboard({
       </Card>
 
       <Card title="Assumptions Snapshot">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
-          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 print:grid-cols-3 gap-3 text-sm">
+          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
             <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
               Analysis Window
             </div>
@@ -256,7 +256,7 @@ export function ResultsDashboard({
               <div>Fleet miles / year: {summary.fleetMilesPerYear.toLocaleString()}</div>
             </div>
           </div>
-                    <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+                    <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
             <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
               Financial Assumptions
             </div>
@@ -265,7 +265,7 @@ export function ResultsDashboard({
             </div>
           </div>
 
-         <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+         <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
             <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
               Maintenance Assumptions
             </div>
@@ -290,7 +290,7 @@ export function ResultsDashboard({
             </div>
           </div>
 
-          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
             <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
               Vehicle Costs
             </div>
@@ -301,7 +301,7 @@ export function ResultsDashboard({
             </div>
           </div>
 
-          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
             <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
               Fuel / Energy Basis
             </div>
@@ -317,7 +317,7 @@ export function ResultsDashboard({
             </div>
           </div>
 
-          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
             <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
               Diesel Financing
             </div>
@@ -329,7 +329,7 @@ export function ResultsDashboard({
           </div>
 
           {activeTech.cng && (
-            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
               <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
                 CNG Financing
               </div>
@@ -345,7 +345,7 @@ export function ResultsDashboard({
           )}
 
           {activeTech.ev && (
-            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
               <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
                 EV Financing
               </div>
@@ -361,7 +361,7 @@ export function ResultsDashboard({
           )}
 
           {activeTech.ev && (
-            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
               <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
                 EV Infrastructure
               </div>
@@ -377,7 +377,7 @@ export function ResultsDashboard({
           )}
 
           {activeTech.cng && (
-            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+            <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
               <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
                 CNG Station
               </div>
@@ -388,7 +388,7 @@ export function ResultsDashboard({
             </div>
           )}
 
-          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3">
+          <div className="rounded-xl2 border border-[rgba(0,0,0,0.05)] p-3 print:break-inside-avoid">
             <div className="text-xs font-semibold uppercase tracking-wide text-grayrush-medium">
               Incentives / Scrap
             </div>

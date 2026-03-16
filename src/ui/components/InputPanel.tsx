@@ -20,7 +20,7 @@ export function InputPanel({
 }: {
   mode: "sales" | "engineer";
   inputs: Inputs;
-  setInput: (key: string, value: number | boolean | null) => void;
+  setInput: (key: string, value: number | boolean | string | null) => void;
   errorsByKey: Record<string, string>;
   activeTech: { diesel: boolean; cng: boolean; ev: boolean };
 }) 

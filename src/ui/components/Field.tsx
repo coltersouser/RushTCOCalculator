@@ -14,7 +14,7 @@ export function Field({
 }: {
   field: FieldSchema;
   value: Inputs[string];
-  onChange: (key: string, value: number | boolean | null) => void;
+  onChange: (key: string, value: number | boolean | string | null) => void;
   error?: string;
 }) {
   const inputClass =
@@ -41,6 +41,31 @@ export function Field({
       </div>
     );
   }
+
+  if (field.type === "text") {
+  return (
+    <div className="space-y-1">
+      <label className="block text-sm font-medium text-rush-black">
+        {field.label}
+      </label>
+      <input
+        type="text"
+        value={String(value ?? "")}
+        onChange={(e) => onChange(field.key, e.target.value)}
+        className="w-full rounded-lg border border-[rgba(0,0,0,0.15)] px-3 py-2 text-sm text-rush-black outline-none focus:ring-2 focus:ring-[rgba(238,177,17,0.40)]"
+        placeholder={field.help ?? ""}
+      />
+      {field.help && (
+        <div className="text-xs text-grayrush-medium">{field.help}</div>
+      )}
+      {error && (
+        <div className="text-xs font-medium text-rush-red">{error}</div>
+      )}
+    </div>
+  );
+}
+
+  
 
   const step = field.step ?? (field.type === "currency" ? 1 : 0.01);
   const min = field.min;
@@ -73,6 +98,8 @@ export function Field({
           }}
         />
       </div>
+
+      
 
       {error && <div className="text-xs text-rush-red">{error}</div>}
     </div>
