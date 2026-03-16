@@ -36,6 +36,20 @@ export function App() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {issues.length > 0 && (
+        <a
+          href="#model-warnings"
+          className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-full border-2 border-amber-500 bg-amber-100 px-4 py-2 shadow-lg"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500 text-2xl font-bold text-white">
+            !
+          </div>
+          <div className="text-sm font-bold text-amber-900">
+            {issues.length} warning{issues.length === 1 ? "" : "s"}
+          </div>
+        </a>
+      )}
+
       <header className="sticky top-0 z-20 bg-white border-b border-[rgba(0,0,0,0.10)]">
         <div className="mx-auto max-w-[1400px] px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -116,7 +130,47 @@ export function App() {
           </section>
 
           <section className="space-y-4">
-            <ResultsDashboard summary={summary} mode={mode} activeTech={activeTech} />
+            {issues.length > 0 && (
+              <div
+                id="model-warnings"
+                className="rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-4 shadow-sm"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-400 text-3xl font-bold text-white">
+                    !
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="text-lg font-bold text-amber-900">
+                      Warning: model inputs need attention
+                    </div>
+                    <div className="mt-1 text-sm text-amber-900">
+                      {issues.length} warning{issues.length === 1 ? "" : "s"} detected. Results may still calculate,
+                      but one or more assumptions may be incomplete or inconsistent.
+                    </div>
+
+                    <ul className="mt-3 list-disc pl-5 text-sm text-amber-900">
+                      {issues.slice(0, 5).map((issue) => (
+                        <li key={`${issue.key}-${issue.message}`}>{issue.message}</li>
+                      ))}
+                    </ul>
+
+                    {issues.length > 5 && (
+                      <div className="mt-2 text-sm font-medium text-amber-900">
+                        + {issues.length - 5} more warning{issues.length - 5 === 1 ? "" : "s"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <ResultsDashboard
+              summary={summary}
+              mode={mode}
+              activeTech={activeTech}
+              inputs={inputs}
+/>
             <ChartsPanel summary={summary} activeTech={activeTech} />
             <Year0DivergingBar summary={summary} activeTech={activeTech} />
             <Year0WaterfallSwitcher summary={summary} activeTech={activeTech} />

@@ -55,11 +55,11 @@ export const inputSchema: InputSchema = {
       "group": "general",
       "type": "number",
       "default": 7,
-      "min": 1,
-      "max": 30,
+      "min": 4,
+      "max": 10,
       "step": 1,
       "advanced": true,
-      "help": "This is the timeframe in which the modeling is built on"
+      "help": "This is the timeframe in which the modeling is built on (Min 4 Max 10)"
     },
     {
       "key": "general.vehicleCount",
@@ -510,7 +510,7 @@ export const inputSchema: InputSchema = {
       "type": "toggle",
       "default": false,
       "advanced": true,
-      "help": "Toggle ON only if customer is on a Time of Use rate Schedule, this is a more advanced model than flat rate"
+      "help": "Toggle ON only if customer is on a Time of Use rate Schedule"
     },
     {
       "key": "utility.rateSummerOnPeak",

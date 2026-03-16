@@ -293,7 +293,7 @@ function demandChargeEffectiveRate(inputs: Inputs, yearIndex: number): number {
 
 // ----------------- main calculate -----------------
 export function calculate(inputs: Inputs): CalcSummary {
-  
+  const horizon = horizonYears(inputs);
   const startYear = Math.round(n(inputs, "general.modelStartYear", 2026));
 
   const milesPerDay = n(inputs, "general.milesPerDayPerTruck", 300);
@@ -305,11 +305,8 @@ export function calculate(inputs: Inputs): CalcSummary {
   const fleetMilesPerYear = annualMilesPerTruck * trucks;
 
   const depYears = Math.max(1, n(inputs, "general.depreciationYears", 7));
-  const horizon = depYears;
-  const chartYears = Math.min(horizon, depYears);
-  const years = Array.from({ length: chartYears + 1 }, (_, i) => i);
-  const analysisPeriodYears = horizon;
-  const analysisYears = Array.from({ length: analysisPeriodYears + 1 }, (_, i) => i);
+  const seriesYears = Math.min(horizon, depYears);
+  const years = Array.from({ length: seriesYears + 1 }, (_, i) => i);
 
   function annualLoanPayment(annualApr: number, termYears: number, principal: number, yearIndex: number): number {
     const t = clampInt(termYears, 0, 60);
@@ -742,12 +739,12 @@ export function calculate(inputs: Inputs): CalcSummary {
   };
 
   const periodSliceEnd = years.length;
-  
+
   const periodTco = {
-  diesel: cumulativeCost.diesel[periodSliceEnd - 1] ?? 0,
-  cng: cumulativeCost.cng[periodSliceEnd - 1] ?? 0,
-  ev: cumulativeCost.ev[periodSliceEnd - 1] ?? 0,
-};
+    diesel: annualCost.diesel.slice(0, periodSliceEnd).reduce((a, v) => a + (v ?? 0), 0),
+    cng: annualCost.cng.slice(0, periodSliceEnd).reduce((a, v) => a + (v ?? 0), 0),
+    ev: annualCost.ev.slice(0, periodSliceEnd).reduce((a, v) => a + (v ?? 0), 0),
+  };
 
   const periodSavingsVsDiesel = {
     ev: periodTco.diesel - periodTco.ev,
