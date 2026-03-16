@@ -1,24 +1,16 @@
-# Rush Alternative Fuel ROI Calculator — React Scaffold
+# Rush Alternative Fuel ROI Calculator
 
-This project is a **React + TypeScript + Tailwind + Recharts** scaffold with:
-- Rush theme colors (Gold/Black/Red)
-- Hybrid Sales ↔ Engineer mode
-- Schema-driven inputs (Sales hides advanced fields)
-- Results dashboard + chart (placeholder math)
-- Scenario Save/Load (localStorage)
-- PDF export via browser Print-to-PDF (offline)
+Internal React + TypeScript calculator for comparing diesel, CNG, and EV commercial vehicle ownership economics.
+
+## Current capabilities
+- Diesel / CNG / EV comparison
+- Financing and down payment assumptions
+- Operating cost comparison
+- Sales and Engineer mode
+- Scenario save/load
+- PDF export via browser print flow
 
 ## Run locally
-1) Install Node.js (LTS)
-2) In this folder:
-
 ```bash
 npm install
 npm run dev
-```
-
-Open the printed URL (usually http://localhost:5173).
-
-## Next step
-The math engine in `src/engine/calc.ts` is placeholder.
-We will port your Excel calculation logic into dedicated engine modules next.
